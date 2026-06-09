@@ -13,6 +13,9 @@ export type LightSchedule = {
   date: Date
   sunrise: Date
   sunset: Date
+  dawn: Date
+  dusk: Date
+  nightEnd: Date
   solarNoon: Date
   daylightDurationMs: number
   goldenHour: {
@@ -24,6 +27,22 @@ export type LightSchedule = {
     evening: LightWindow
   }
   windows: LightWindow[]
+}
+
+export type TimeOfDayPhase = 'dawn' | 'goldenHour' | 'blueHour' | 'daytime' | 'night'
+
+export type TimeOfDayBackground = {
+  from: string
+  via: string
+  to: string
+}
+
+export const TIME_OF_DAY_BACKGROUNDS: Record<TimeOfDayPhase, TimeOfDayBackground> = {
+  goldenHour: { from: '#fffbeb', via: '#fde68a', to: '#fed7aa' },
+  blueHour: { from: '#eef2ff', via: '#c7d2fe', to: '#a5b4fc' },
+  dawn: { from: '#faf5ff', via: '#f3e8ff', to: '#ede9fe' },
+  daytime: { from: '#f8fafc', via: '#fffbeb', to: '#ecfdf5' },
+  night: { from: '#f1f5f9', via: '#e2e8f0', to: '#cbd5e1' },
 }
 
 let blueHourTimesConfigured = false
@@ -82,12 +101,35 @@ export function getLightSchedule(
     date,
     sunrise: times.sunrise,
     sunset: times.sunset,
+    dawn: times.dawn,
+    dusk: times.dusk,
+    nightEnd: times.nightEnd,
     solarNoon: times.solarNoon,
     daylightDurationMs: times.sunset.getTime() - times.sunrise.getTime(),
     goldenHour,
     blueHour,
     windows,
   }
+}
+
+export function getTimeOfDayPhase(
+  schedule: LightSchedule,
+  now = new Date(),
+): TimeOfDayPhase {
+  const active = getActiveWindow(schedule.windows, now)
+  if (active) {
+    return active.category === 'goldenHour' ? 'goldenHour' : 'blueHour'
+  }
+
+  if (now >= schedule.nightEnd && now < schedule.sunrise) {
+    return 'dawn'
+  }
+
+  if (now >= schedule.sunrise && now < schedule.sunset) {
+    return 'daytime'
+  }
+
+  return 'night'
 }
 
 export function formatTime(date: Date): string {

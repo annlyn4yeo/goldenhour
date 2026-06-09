@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import CitySearch from './components/CitySearch'
 import {
   formatCoordinates,
@@ -11,6 +11,8 @@ import {
   getActiveWindow,
   getLightSchedule,
   getNextWindow,
+  getTimeOfDayPhase,
+  TIME_OF_DAY_BACKGROUNDS,
 } from './lib/goldenHour'
 
 type Location = Place & {
@@ -89,6 +91,8 @@ export default function App() {
 
   const activeWindow = schedule ? getActiveWindow(schedule.windows, now) : null
   const nextWindow = schedule ? getNextWindow(schedule.windows, now) : null
+  const timeOfDayPhase = schedule ? getTimeOfDayPhase(schedule, now) : 'daytime'
+  const background = TIME_OF_DAY_BACKGROUNDS[timeOfDayPhase]
 
   const status = activeWindow
     ? `${activeWindow.label} is happening now`
@@ -104,7 +108,16 @@ export default function App() {
   const showSchedule = Boolean(schedule && location)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-rose-100 text-stone-900">
+    <div
+      className="time-of-day-bg min-h-screen text-stone-900"
+      style={
+        {
+          '--bg-from': background.from,
+          '--bg-via': background.via,
+          '--bg-to': background.to,
+        } as CSSProperties
+      }
+    >
       <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-6 py-12">
         <header className="mb-10 text-center">
           <p className="text-sm font-medium uppercase tracking-[0.2em] text-amber-700">

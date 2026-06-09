@@ -6,6 +6,7 @@ declare module 'suncalc' {
     sunset: Date
     dawn: Date
     dusk: Date
+    nightEnd: Date
     goldenHour: Date
     goldenHourEnd: Date
     blueHourEnd: Date

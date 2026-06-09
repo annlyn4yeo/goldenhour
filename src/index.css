@@ -1,5 +1,31 @@
 @import 'tailwindcss';
 
+@property --bg-from {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #fffbeb;
+}
+
+@property --bg-via {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #fff7ed;
+}
+
+@property --bg-to {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #ffe4e6;
+}
+
+.time-of-day-bg {
+  background: linear-gradient(to bottom right, var(--bg-from), var(--bg-via), var(--bg-to));
+  transition:
+    --bg-from 4s ease,
+    --bg-via 4s ease,
+    --bg-to 4s ease;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
