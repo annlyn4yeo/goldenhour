@@ -7,6 +7,7 @@ import TopBar from './components/TopBar'
 import useLocation from './hooks/useLocation'
 import useSkyTheme from './hooks/useSkyTheme'
 import useSunData, { getDisplaySunData } from './hooks/useSunData'
+import useWeather from './hooks/useWeather'
 
 const FALLBACK_COORDS = { lat: 12.9716, lng: 77.5946 }
 
@@ -14,6 +15,9 @@ export default function App() {
   const { coords, cityName } = useLocation()
   const resolvedCoords = coords ?? FALLBACK_COORDS
   const sunData = useSunData({ coords: resolvedCoords })
+  const { weather, loading: weatherLoading, error: weatherError } = useWeather({
+    coords: resolvedCoords,
+  })
   const [selectedDayIndex, setSelectedDayIndex] = useState(0)
 
   const displaySunData = useMemo(
@@ -38,6 +42,9 @@ export default function App() {
         selectedDayIndex={selectedDayIndex}
         onSelectDay={setSelectedDayIndex}
         currentSkyPhase={displaySunData.currentSkyPhase}
+        weather={weather}
+        weatherLoading={weatherLoading}
+        weatherError={weatherError}
       />
       <Footer />
     </AppShell>
