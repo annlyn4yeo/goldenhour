@@ -3,6 +3,10 @@ import {
   isValidSunTime,
   type LightSchedule,
 } from './goldenHour'
+import {
+  isOvercastWeather,
+  type WeatherCategory,
+} from './weather'
 
 export type LightCondition =
   | 'goldenHour'
@@ -81,22 +85,62 @@ const RECIPES: Record<LightCondition, FujifilmRecipe> = {
   },
 }
 
+const PARTLY_CLOUDY_OVERRIDES: Partial<
+  Record<LightCondition, Partial<FujifilmRecipe>>
+> = {
+  goldenHour: {
+    filmSimulation: 'Astia',
+    conditionLabel: 'Golden hour · partly cloudy',
+    description:
+      'Soft golden light through cloud gaps — gentle color with protected highlights.',
+    highlights: '-1',
+    color: '+1',
+  },
+  blueHour: {
+    filmSimulation: 'Pro Neg. Std',
+    conditionLabel: 'Blue hour · partly cloudy',
+    description:
+      'Cool twilight with cloud texture — balanced contrast and natural skin tones.',
+    highlights: '0',
+    shadows: '+1',
+    color: '0',
+  },
+  daylight: {
+    filmSimulation: 'Provia',
+    conditionLabel: 'Partly cloudy',
+    description:
+      'Mixed sun and shade — neutral color with flexible dynamic range.',
+    highlights: '-1',
+    shadows: '+1',
+    dynamicRange: 'DR400',
+    color: '0',
+  },
+}
+
 export function getLightCondition(
   schedule: LightSchedule,
   now: Date,
-  overcast = false,
+  weather: WeatherCategory = 'clear',
 ): LightCondition {
   const activeWindow = getActiveWindow(schedule.windows, now)
 
-  if (activeWindow?.category === 'goldenHour') return 'goldenHour'
-  if (activeWindow?.category === 'blueHour') return 'blueHour'
+  if (activeWindow?.category === 'goldenHour') {
+    if (isOvercastWeather(weather)) return 'overcast'
+    return 'goldenHour'
+  }
+
+  if (activeWindow?.category === 'blueHour') {
+    if (weather === 'overcast' || weather === 'precipitation') return 'overcast'
+    return 'blueHour'
+  }
 
   if (!isValidSunTime(schedule.sunrise) || !isValidSunTime(schedule.sunset)) {
     return 'night'
   }
 
   if (now >= schedule.sunrise && now <= schedule.sunset) {
-    return overcast ? 'overcast' : 'daylight'
+    if (isOvercastWeather(weather)) return 'overcast'
+    return 'daylight'
   }
 
   return 'night'
@@ -105,7 +149,17 @@ export function getLightCondition(
 export function getFujifilmRecipe(
   schedule: LightSchedule,
   now: Date,
-  overcast = false,
+  weather: WeatherCategory = 'clear',
 ): FujifilmRecipe {
-  return RECIPES[getLightCondition(schedule, now, overcast)]
+  const condition = getLightCondition(schedule, now, weather)
+  const base = RECIPES[condition]
+
+  if (weather === 'partlyCloudy') {
+    const override = PARTLY_CLOUDY_OVERRIDES[condition]
+    if (override) {
+      return { ...base, ...override }
+    }
+  }
+
+  return base
 }

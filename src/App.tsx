@@ -6,13 +6,18 @@ import {
   type Place,
 } from './lib/geocoding'
 import ForecastStrip from './components/ForecastStrip'
+import FujifilmRecipeCard from './components/FujifilmRecipeCard'
 import NextWindowCountdown from './components/NextWindowCountdown'
+import ShootQualityIndicator from './components/ShootQualityIndicator'
 import SunArcRing from './components/SunArcRing'
+import WeatherContext from './components/WeatherContext'
 import {
   getLightSchedule,
   getTimeOfDayPhase,
   TIME_OF_DAY_BACKGROUNDS,
 } from './lib/goldenHour'
+import { getShootQuality } from './lib/shootQuality'
+import { fetchCurrentWeather, type WeatherSnapshot } from './lib/weather'
 
 type Location = Place & {
   source: 'geolocation' | 'search'
@@ -24,6 +29,9 @@ export default function App() {
   const [detecting, setDetecting] = useState(true)
   const [resolvingPlace, setResolvingPlace] = useState(false)
   const [now, setNow] = useState(() => new Date())
+  const [weather, setWeather] = useState<WeatherSnapshot | null>(null)
+  const [weatherLoading, setWeatherLoading] = useState(false)
+  const [weatherError, setWeatherError] = useState<string | null>(null)
 
   const applyCoordinates = useCallback(
     async (lat: number, lng: number, source: Location['source'], name?: string) => {
@@ -83,6 +91,34 @@ export default function App() {
     return () => window.clearInterval(timer)
   }, [])
 
+  useEffect(() => {
+    if (!location) return
+
+    let cancelled = false
+    setWeatherLoading(true)
+    setWeatherError(null)
+
+    void fetchCurrentWeather(location.lat, location.lng)
+      .then((snapshot) => {
+        if (!cancelled) setWeather(snapshot)
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setWeather(null)
+          setWeatherError(
+            error instanceof Error ? error.message : 'Unable to load current weather.',
+          )
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setWeatherLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [location?.lat, location?.lng])
+
   const schedule = useMemo(() => {
     if (!location) return null
     return getLightSchedule(now, location.lat, location.lng)
@@ -90,6 +126,9 @@ export default function App() {
 
   const timeOfDayPhase = schedule ? getTimeOfDayPhase(schedule, now) : 'daytime'
   const background = TIME_OF_DAY_BACKGROUNDS[timeOfDayPhase]
+  const shootQuality = schedule
+    ? getShootQuality(schedule, now, weather?.category ?? null)
+    : null
 
   const handleCitySelect = (place: Place) => {
     void applyCoordinates(place.lat, place.lng, 'search', place.name)
@@ -163,7 +202,21 @@ export default function App() {
                   {formatCoordinates(location.lat, location.lng)}
                 </p>
               </div>
+              <div className="mt-4 space-y-3">
+                <WeatherContext
+                  weather={weather}
+                  loading={weatherLoading}
+                  error={weatherError}
+                />
+                {shootQuality && <ShootQualityIndicator quality={shootQuality} />}
+              </div>
             </section>
+
+            <FujifilmRecipeCard
+              schedule={schedule}
+              now={now}
+              weather={weather?.category ?? null}
+            />
 
             <section className="rounded-3xl bg-white/80 p-6 shadow-sm backdrop-blur">
               <p className="text-sm font-medium text-amber-700">Sun path today</p>

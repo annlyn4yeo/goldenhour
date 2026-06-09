@@ -1,10 +1,11 @@
-import { useState } from 'react'
 import { getFujifilmRecipe } from '../lib/fujifilmRecipes'
 import type { LightSchedule } from '../lib/goldenHour'
+import type { WeatherCategory } from '../lib/weather'
 
 type FujifilmRecipeCardProps = {
   schedule: LightSchedule
   now: Date
+  weather: WeatherCategory | null
 }
 
 type SettingRowProps = {
@@ -21,11 +22,12 @@ function SettingRow({ label, value }: SettingRowProps) {
   )
 }
 
-export default function FujifilmRecipeCard({ schedule, now }: FujifilmRecipeCardProps) {
-  const [overcast, setOvercast] = useState(false)
-  const recipe = getFujifilmRecipe(schedule, now, overcast)
-  const canToggleOvercast =
-    recipe.condition === 'daylight' || recipe.condition === 'overcast'
+export default function FujifilmRecipeCard({
+  schedule,
+  now,
+  weather,
+}: FujifilmRecipeCardProps) {
+  const recipe = getFujifilmRecipe(schedule, now, weather ?? 'clear')
 
   return (
     <section className="rounded-3xl bg-white/80 p-6 shadow-sm backdrop-blur">
@@ -48,16 +50,10 @@ export default function FujifilmRecipeCard({ schedule, now }: FujifilmRecipeCard
 
       <p className="mt-4 text-sm leading-6 text-stone-600">{recipe.description}</p>
 
-      {canToggleOvercast && (
-        <label className="mt-4 flex items-center gap-3 rounded-2xl border border-stone-200 bg-white/70 px-4 py-3">
-          <input
-            type="checkbox"
-            checked={overcast}
-            onChange={(event) => setOvercast(event.target.checked)}
-            className="size-4 rounded border-stone-300 text-amber-600 focus:ring-amber-300"
-          />
-          <span className="text-sm text-stone-700">Overcast skies</span>
-        </label>
+      {!weather && (
+        <p className="mt-4 rounded-2xl border border-stone-200 bg-white/70 px-4 py-3 text-sm text-stone-600">
+          Weather unavailable — recipe assumes clear skies.
+        </p>
       )}
 
       <div className="mt-5 space-y-2">
