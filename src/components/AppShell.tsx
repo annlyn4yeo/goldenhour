@@ -1,12 +1,7 @@
 import type { ReactNode } from 'react'
+import type { SkyPhase } from '../hooks/useSunData'
 
-export type SkyPhase =
-  | 'dawn'
-  | 'blueHour'
-  | 'goldenHour'
-  | 'solar'
-  | 'dusk'
-  | 'night'
+export type { SkyPhase }
 
 type AppShellProps = {
   skyPhase: SkyPhase
@@ -16,7 +11,7 @@ type AppShellProps = {
 export default function AppShell({ skyPhase, children }: AppShellProps) {
   return (
     <div
-      className="app-shell min-h-screen font-ui text-ink-primary"
+      className="app-shell min-h-screen font-ui"
       data-sky-phase={skyPhase}
     >
       {children}

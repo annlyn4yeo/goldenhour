@@ -5,12 +5,14 @@
 
 :root {
   /* Sky palette */
-  --sky-dawn: #1a1035;
-  --sky-blueHour: #2d3a8c;
-  --sky-goldenHour: #e8843a;
-  --sky-solar: #f5c842;
-  --sky-dusk: #c45c2e;
   --sky-night: #0b0c1a;
+  --sky-dawn: #1a1035;
+  --sky-blueHourMorning: #1e2d6e;
+  --sky-goldenHourMorning: #c45c2e;
+  --sky-solar: #e8a020;
+  --sky-goldenHourEvening: #b84a20;
+  --sky-blueHourEvening: #1e2a6a;
+  --sky-dusk: #0f0d2a;
 
   /* Surface palette */
   --surface-base: #faf9f6;
@@ -43,32 +45,6 @@
   --spacing-gutter: 48px;
 }
 
-@property --bg-from {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: #fffbeb;
-}
-
-@property --bg-via {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: #fff7ed;
-}
-
-@property --bg-to {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: #ffe4e6;
-}
-
-.time-of-day-bg {
-  background: linear-gradient(to bottom right, var(--bg-from), var(--bg-via), var(--bg-to));
-  transition:
-    --bg-from 4s ease,
-    --bg-via 4s ease,
-    --bg-to 4s ease;
-}
-
 body {
   margin: 0;
   min-height: 100vh;
@@ -76,31 +52,39 @@ body {
 }
 
 .app-shell {
-  --sky-bg: var(--sky-goldenHour);
+  --sky-bg: var(--sky-goldenHourMorning);
   background-color: var(--sky-bg);
-  transition: background-color 2s ease;
+  transition: background-color 3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.app-shell[data-sky-phase='night'] {
+  --sky-bg: var(--sky-night);
 }
 
 .app-shell[data-sky-phase='dawn'] {
   --sky-bg: var(--sky-dawn);
 }
 
-.app-shell[data-sky-phase='blueHour'] {
-  --sky-bg: var(--sky-blueHour);
+.app-shell[data-sky-phase='blueHourMorning'] {
+  --sky-bg: var(--sky-blueHourMorning);
 }
 
-.app-shell[data-sky-phase='goldenHour'] {
-  --sky-bg: var(--sky-goldenHour);
+.app-shell[data-sky-phase='goldenHourMorning'] {
+  --sky-bg: var(--sky-goldenHourMorning);
 }
 
 .app-shell[data-sky-phase='solar'] {
   --sky-bg: var(--sky-solar);
 }
 
-.app-shell[data-sky-phase='dusk'] {
-  --sky-bg: var(--sky-dusk);
+.app-shell[data-sky-phase='goldenHourEvening'] {
+  --sky-bg: var(--sky-goldenHourEvening);
 }
 
-.app-shell[data-sky-phase='night'] {
-  --sky-bg: var(--sky-night);
+.app-shell[data-sky-phase='blueHourEvening'] {
+  --sky-bg: var(--sky-blueHourEvening);
+}
+
+.app-shell[data-sky-phase='dusk'] {
+  --sky-bg: var(--sky-dusk);
 }

@@ -5,12 +5,14 @@ export default {
     extend: {
       colors: {
         sky: {
-          dawn: '#1a1035',
-          blueHour: '#2d3a8c',
-          goldenHour: '#e8843a',
-          solar: '#f5c842',
-          dusk: '#c45c2e',
           night: '#0b0c1a',
+          dawn: '#1a1035',
+          blueHourMorning: '#1e2d6e',
+          goldenHourMorning: '#c45c2e',
+          solar: '#e8a020',
+          goldenHourEvening: '#b84a20',
+          blueHourEvening: '#1e2a6a',
+          dusk: '#0f0d2a',
         },
         surface: {
           base: '#faf9f6',
