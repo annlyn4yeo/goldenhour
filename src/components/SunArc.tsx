@@ -25,16 +25,28 @@ function inkFillClass(isLight: boolean, opacity?: string): string {
   return opacity ? `${base}/${opacity}` : base
 }
 
+function looksLikeCoordinates(name: string): boolean {
+  return /^-?\d+\.\d+,\s*-?\d+\.\d+$/.test(name.trim())
+}
+
+function displayLocationName(cityName?: string): string | null {
+  if (!cityName || looksLikeCoordinates(cityName)) return null
+  return cityName
+}
+
 const CX = 400
 const CY = 220
 const RADIUS = 180
-const HORIZON_Y = 240
+const HORIZON_Y = 248
+const TRACK_WIDTH = 4
+const SEGMENT_WIDTH = 7
 
 const ARC_COLORS = {
-  night: '#0b0c1a',
-  blueHour: '#3d4fa8',
-  goldenHour: '#e8843a',
-  solar: '#f5c842',
+  track: 'rgba(250, 249, 246, 0.22)',
+  night: '#1a1d3a',
+  blueHour: '#5b6fd4',
+  goldenHour: '#f09040',
+  solar: '#ffd54a',
 } as const
 
 type ArcMarker = {
@@ -42,6 +54,7 @@ type ArcMarker = {
   label: string
   time: Date
   progress: number
+  kind: 'primary' | 'golden'
 }
 
 function timeToArcProgress(sunrise: Date, sunset: Date, time: Date): number {
@@ -54,36 +67,14 @@ function clampProgress(value: number): number {
   return Math.min(1, Math.max(0, value))
 }
 
-function altitudeToArcProgress(
-  altitude: number,
+function timeProgressAtNow(
   sunrise: Date,
   sunset: Date,
-  solarNoon: Date,
   now: Date,
 ): number {
-  if (!isValidSunTime(sunrise) || !isValidSunTime(sunset)) return 0
-
-  const span = sunset.getTime() - sunrise.getTime()
-  if (span <= 0) return 0
-
-  const timeProgress = clampProgress((now.getTime() - sunrise.getTime()) / span)
-
-  if (altitude <= 0) {
-    if (now.getTime() < sunrise.getTime()) return 0
-    if (now.getTime() > sunset.getTime()) return 1
-    return timeProgress
-  }
-
-  const noonProgress = clampProgress(timeToArcProgress(sunrise, sunset, solarNoon))
-  const altRatio = Math.min(1, Math.max(0, altitude / 45))
-
-  if (timeProgress <= noonProgress) {
-    return clampProgress((altRatio * noonProgress) / Math.max(noonProgress, 0.01))
-  }
-
-  const afternoonSpan = 1 - noonProgress
-  const afternoonProgress = (timeProgress - noonProgress) / Math.max(afternoonSpan, 0.01)
-  return clampProgress(noonProgress + altRatio * afternoonProgress * afternoonSpan)
+  if (now.getTime() < sunrise.getTime()) return 0
+  if (now.getTime() > sunset.getTime()) return 1
+  return clampProgress(timeToArcProgress(sunrise, sunset, now))
 }
 
 function formatCountdownFromMinutes(totalMinutes: number): string {
@@ -103,17 +94,17 @@ function getPhaseGlow(skyPhase: SunData['currentSkyPhase']): string {
   switch (skyPhase) {
     case 'goldenHourMorning':
     case 'goldenHourEvening':
-      return 'drop-shadow(0 0 24px rgba(232, 132, 58, 0.45))'
+      return 'drop-shadow(0 0 32px rgba(240, 144, 64, 0.55))'
     case 'blueHourMorning':
     case 'blueHourEvening':
-      return 'drop-shadow(0 0 24px rgba(45, 58, 140, 0.5))'
+      return 'drop-shadow(0 0 28px rgba(91, 111, 212, 0.55))'
     case 'solar':
-      return 'drop-shadow(0 0 28px rgba(245, 200, 66, 0.55))'
+      return 'drop-shadow(0 0 36px rgba(255, 213, 74, 0.65))'
     case 'dawn':
     case 'dusk':
-      return 'drop-shadow(0 0 20px rgba(196, 92, 46, 0.35))'
+      return 'drop-shadow(0 0 24px rgba(196, 92, 46, 0.45))'
     case 'night':
-      return 'drop-shadow(0 0 16px rgba(11, 12, 26, 0.6))'
+      return 'drop-shadow(0 0 20px rgba(91, 111, 212, 0.35))'
   }
 }
 
@@ -122,7 +113,6 @@ type ArcSegment = {
   start: number
   end: number
   color: string
-  width: number
 }
 
 function buildArcSegments(sunData: SunData): ArcSegment[] {
@@ -137,30 +127,18 @@ function buildArcSegments(sunData: SunData): ArcSegment[] {
   const pGoldenEveningStart = p(sunData.goldenHourEveningStart)
 
   return [
-    { id: 'blue-morning', start: 0, end: 0.04, color: ARC_COLORS.blueHour, width: 3 },
-    {
-      id: 'golden-morning',
-      start: 0,
-      end: pGoldenMorningEnd,
-      color: ARC_COLORS.goldenHour,
-      width: 4,
-    },
-    {
-      id: 'solar',
-      start: pGoldenMorningEnd,
-      end: pGoldenEveningStart,
-      color: ARC_COLORS.solar,
-      width: 3.5,
-    },
-    {
-      id: 'golden-evening',
-      start: pGoldenEveningStart,
-      end: 1,
-      color: ARC_COLORS.goldenHour,
-      width: 4,
-    },
-    { id: 'blue-evening', start: 0.96, end: 1, color: ARC_COLORS.blueHour, width: 3 },
+    { id: 'blue-morning', start: 0, end: 0.05, color: ARC_COLORS.blueHour },
+    { id: 'golden-morning', start: 0, end: pGoldenMorningEnd, color: ARC_COLORS.goldenHour },
+    { id: 'solar', start: pGoldenMorningEnd, end: pGoldenEveningStart, color: ARC_COLORS.solar },
+    { id: 'golden-evening', start: pGoldenEveningStart, end: 1, color: ARC_COLORS.goldenHour },
+    { id: 'blue-evening', start: 0.95, end: 1, color: ARC_COLORS.blueHour },
   ]
+}
+
+function labelYOffset(progress: number): number {
+  if (progress < 0.12) return 20
+  if (progress > 0.88) return 20
+  return 22
 }
 
 export default function SunArc({
@@ -169,7 +147,7 @@ export default function SunArc({
   isLight = false,
   isLive = true,
 }: SunArcProps) {
-  const gradientId = useId().replace(/:/g, '')
+  const uid = useId().replace(/:/g, '')
   const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
@@ -188,26 +166,41 @@ export default function SunArc({
     const p = (time: Date) => clampProgress(timeToArcProgress(sunrise, sunset, time))
 
     return [
-      { id: 'sunrise', label: formatTime(sunData.sunrise), time: sunData.sunrise, progress: 0 },
+      {
+        id: 'sunrise',
+        label: formatTime(sunData.sunrise),
+        time: sunData.sunrise,
+        progress: 0,
+        kind: 'primary',
+      },
       {
         id: 'golden-morning-end',
-        label: formatTime(sunData.goldenHourMorningEnd),
+        label: '',
         time: sunData.goldenHourMorningEnd,
         progress: p(sunData.goldenHourMorningEnd),
+        kind: 'golden',
       },
       {
         id: 'solar-noon',
         label: formatTime(sunData.solarNoon),
         time: sunData.solarNoon,
         progress: p(sunData.solarNoon),
+        kind: 'primary',
       },
       {
         id: 'golden-evening-start',
-        label: formatTime(sunData.goldenHourEveningStart),
+        label: '',
         time: sunData.goldenHourEveningStart,
         progress: p(sunData.goldenHourEveningStart),
+        kind: 'golden',
       },
-      { id: 'sunset', label: formatTime(sunData.sunset), time: sunData.sunset, progress: 1 },
+      {
+        id: 'sunset',
+        label: formatTime(sunData.sunset),
+        time: sunData.sunset,
+        progress: 1,
+        kind: 'primary',
+      },
     ]
   }, [hasValidDaylight, sunData])
 
@@ -217,14 +210,8 @@ export default function SunArc({
 
   const sunProgress = useMemo(() => {
     if (!hasValidDaylight) return 0
-    return altitudeToArcProgress(
-      sunData.sunPosition.altitude,
-      sunData.sunrise,
-      sunData.sunset,
-      sunData.solarNoon,
-      referenceTime,
-    )
-  }, [hasValidDaylight, sunData, referenceTime])
+    return timeProgressAtNow(sunData.sunrise, sunData.sunset, referenceTime)
+  }, [hasValidDaylight, sunData.sunrise, sunData.sunset, referenceTime])
 
   const sunPoint = daylightProgressToPoint(sunProgress, CX, CY, RADIUS)
   const sunAboveHorizon = sunData.sunPosition.altitude > 0
@@ -237,11 +224,12 @@ export default function SunArc({
     : 0
 
   const phaseGlow = getPhaseGlow(sunData.currentSkyPhase)
+  const locationLabel = displayLocationName(cityName)
 
   if (!hasValidDaylight) {
     return (
       <div className="w-full max-w-4xl text-center">
-        <p className={`font-display text-display italic ${inkTextClass(isLight, '80')}`}>
+        <p className={`font-display text-display ${inkTextClass(isLight, '80')}`}>
           Sun path unavailable
         </p>
         <p className={`mt-2 text-body ${inkTextClass(isLight, '60')}`}>
@@ -266,37 +254,59 @@ export default function SunArc({
         style={{ filter: phaseGlow }}
       >
         <defs>
-          <radialGradient id={`sun-glow-${gradientId}`} cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#fde68a" stopOpacity="0.95" />
-            <stop offset="100%" stopColor="#fde68a" stopOpacity="0" />
+          <radialGradient id={`sun-glow-${uid}`} cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#ffe082" stopOpacity="1" />
+            <stop offset="45%" stopColor="#ffd54a" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#ffd54a" stopOpacity="0" />
           </radialGradient>
-          <linearGradient id={`arc-fade-${gradientId}`} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor={ARC_COLORS.night} stopOpacity="0.7" />
-            <stop offset="8%" stopColor={ARC_COLORS.blueHour} stopOpacity="0.9" />
-            <stop offset="18%" stopColor={ARC_COLORS.goldenHour} />
+          <linearGradient id={`arc-spectrum-${uid}`} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor={ARC_COLORS.blueHour} />
+            <stop offset="12%" stopColor={ARC_COLORS.goldenHour} />
             <stop offset="50%" stopColor={ARC_COLORS.solar} />
-            <stop offset="82%" stopColor={ARC_COLORS.goldenHour} />
-            <stop offset="92%" stopColor={ARC_COLORS.blueHour} stopOpacity="0.9" />
-            <stop offset="100%" stopColor={ARC_COLORS.night} stopOpacity="0.7" />
+            <stop offset="88%" stopColor={ARC_COLORS.goldenHour} />
+            <stop offset="100%" stopColor={ARC_COLORS.blueHour} />
           </linearGradient>
+          <filter id={`sun-bloom-${uid}`} x="-100%" y="-100%" width="300%" height="300%">
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id={`arc-glow-${uid}`} x="-10%" y="-30%" width="120%" height="160%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
         </defs>
 
         <line
-          x1={40}
+          x1={32}
           y1={HORIZON_Y}
-          x2={760}
+          x2={768}
           y2={HORIZON_Y}
-          stroke="rgba(250, 249, 246, 0.25)"
-          strokeWidth={1}
+          stroke="rgba(250, 249, 246, 0.35)"
+          strokeWidth={1.5}
         />
 
         <path
           d={trackPath}
           fill="none"
-          stroke={`url(#arc-fade-${gradientId})`}
-          strokeWidth={3}
+          stroke={ARC_COLORS.track}
+          strokeWidth={TRACK_WIDTH}
           strokeLinecap="round"
-          opacity={0.35}
+        />
+
+        <path
+          d={trackPath}
+          fill="none"
+          stroke={`url(#arc-spectrum-${uid})`}
+          strokeWidth={SEGMENT_WIDTH}
+          strokeLinecap="round"
+          opacity={0.92}
+          filter={`url(#arc-glow-${uid})`}
         />
 
         {segments.map((segment) => {
@@ -310,43 +320,55 @@ export default function SunArc({
               d={describeDaylightArc(CX, CY, RADIUS, start, end)}
               fill="none"
               stroke={segment.color}
-              strokeWidth={segment.width}
-              strokeLinecap="round"
-              opacity={0.85}
+              strokeWidth={SEGMENT_WIDTH + 1}
+              strokeLinecap="butt"
+              opacity={0.55}
             />
           )
         })}
 
         {markers.map((marker) => {
           const { x, y } = daylightProgressToPoint(marker.progress, CX, CY, RADIUS)
-          const isEndpoint = marker.progress === 0 || marker.progress === 1
+          const isPrimary = marker.kind === 'primary'
+          const isNoon = marker.id === 'solar-noon'
 
           return (
             <g key={marker.id}>
-              <line
-                x1={x}
-                y1={y}
-                x2={x}
-                y2={HORIZON_Y}
-                stroke="rgba(250, 249, 246, 0.12)"
-                strokeWidth={1}
-                strokeDasharray="2 3"
-              />
+              {isPrimary && (
+                <line
+                  x1={x}
+                  y1={y}
+                  x2={x}
+                  y2={HORIZON_Y}
+                  stroke="rgba(250, 249, 246, 0.2)"
+                  strokeWidth={1}
+                  strokeDasharray="3 4"
+                />
+              )}
               <circle
                 cx={x}
                 cy={y}
-                r={isEndpoint ? 3 : 2.5}
-                fill="rgba(250, 249, 246, 0.7)"
+                r={isPrimary ? 4 : 2.5}
+                fill={isPrimary ? 'rgba(250, 249, 246, 0.9)' : ARC_COLORS.goldenHour}
+                stroke={isPrimary ? 'rgba(250, 249, 246, 0.4)' : 'none'}
+                strokeWidth={1}
               />
-              <text
-                x={x}
-                y={HORIZON_Y + 18}
-                textAnchor="middle"
-                className={inkFillClass(isLight, '70')}
-                style={{ fontFamily: 'Inter, sans-serif', fontSize: 11 }}
-              >
-                {marker.label}
-              </text>
+              {isPrimary && marker.label && (
+                <text
+                  x={x}
+                  y={HORIZON_Y + labelYOffset(marker.progress)}
+                  textAnchor="middle"
+                  className={inkFillClass(isLight, isNoon ? '90' : '75')}
+                  style={{
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: isNoon ? 13 : 12,
+                    fontWeight: isNoon ? 600 : 500,
+                    letterSpacing: '0.02em',
+                  }}
+                >
+                  {marker.label}
+                </text>
+              )}
             </g>
           )
         })}
@@ -354,40 +376,41 @@ export default function SunArc({
         <circle
           cx={sunPoint.x}
           cy={sunPoint.y}
-          r={16}
-          fill={`url(#sun-glow-${gradientId})`}
-          opacity={sunAboveHorizon ? 0.6 : 0.2}
+          r={22}
+          fill={`url(#sun-glow-${uid})`}
+          opacity={sunAboveHorizon ? 0.85 : 0.25}
           className="transition-all duration-1000 ease-in-out"
         />
         <circle
           cx={sunPoint.x}
           cy={sunPoint.y}
-          r={6}
-          fill="#fde68a"
-          stroke="rgba(250, 249, 246, 0.9)"
-          strokeWidth={1.5}
-          opacity={sunAboveHorizon ? 1 : 0.35}
+          r={9}
+          fill="#ffd54a"
+          stroke="rgba(250, 249, 246, 0.95)"
+          strokeWidth={2}
+          opacity={sunAboveHorizon ? 1 : 0.4}
+          filter={`url(#sun-bloom-${uid})`}
           className="transition-all duration-1000 ease-in-out"
         />
       </svg>
 
-      <div className="mt-2 text-center">
+      <div className="mt-1 text-center">
         <h1
-          className={`font-display text-[clamp(52px,8vw,64px)] leading-none italic ${inkTextClass(isLight)}`}
+          className={`font-display text-[clamp(56px,9vw,72px)] font-normal leading-[0.95] tracking-tight ${inkTextClass(isLight)}`}
         >
           {sunData.nextWindow.label}
         </h1>
         <p
-          className={`mt-3 text-bodyLg tabular-nums ${inkTextClass(isLight, '85')}`}
+          className={`mt-4 text-[clamp(18px,3vw,22px)] font-medium tabular-nums tracking-wide ${inkTextClass(isLight, '90')}`}
           aria-live={isLive ? 'polite' : undefined}
         >
           {isLive
             ? `in ${formatCountdownFromMinutes(minutesAway)}`
             : formatTime(sunData.nextWindow.time)}
         </p>
-        {(cityName || sunData.date) && (
-          <p className={`mt-4 text-caption ${inkTextClass(isLight, '55')}`}>
-            {[cityName, formatTodayDate(sunData.date)].filter(Boolean).join(' · ')}
+        {(locationLabel || sunData.date) && (
+          <p className={`mt-5 text-body font-medium tracking-wide ${inkTextClass(isLight, '60')}`}>
+            {[locationLabel, formatTodayDate(sunData.date)].filter(Boolean).join(' · ')}
           </p>
         )}
       </div>

@@ -40,15 +40,14 @@ async function lookupCityNameOpenMeteo(lat: number, lng: number): Promise<string
 
 async function resolveCityName(lat: number, lng: number): Promise<string | null> {
   try {
-    const name = await lookupCityNameOpenMeteo(lat, lng)
-    if (name) return name
+    const place = await reverseGeocode(lat, lng)
+    if (place.name) return place.name
   } catch {
-    // fall through to Nominatim
+    // fall through to Open-Meteo
   }
 
   try {
-    const place = await reverseGeocode(lat, lng)
-    return place.name
+    return await lookupCityNameOpenMeteo(lat, lng)
   } catch {
     return null
   }
@@ -107,9 +106,7 @@ export default function useLocation(): UseLocationReturn {
     if (permissionState === 'granted' && geoCoords) {
       return {
         coords: geoCoords,
-        cityName:
-          geocodedCityName ??
-          `${geoCoords.lat.toFixed(2)}, ${geoCoords.lng.toFixed(2)}`,
+        cityName: geocodedCityName ?? '',
       }
     }
 
