@@ -7,7 +7,7 @@ import LocationDrawer from './components/LocationDrawer'
 import TopBar from './components/TopBar'
 import useLocation from './hooks/useLocation'
 import useSavedLocations from './hooks/useSavedLocations'
-import useSkyTheme from './hooks/useSkyTheme'
+import useSkyTheme, { heroSkyText } from './hooks/useSkyTheme'
 import useSunData, { getDisplaySunData } from './hooks/useSunData'
 import useWeather from './hooks/useWeather'
 
@@ -59,8 +59,9 @@ export default function App() {
     [sunData, selectedDayIndex, resolvedCoords],
   )
 
-  const { isLight, textClasses } = useSkyTheme(displaySunData.currentSkyPhase)
   const isLiveDay = selectedDayIndex === 0
+  const liveSkyTheme = useSkyTheme(sunData.currentSkyPhase)
+  const heroSkyTheme = heroSkyText(isLiveDay, displaySunData.currentSkyPhase)
 
   return (
     <div className="relative overflow-hidden">
@@ -68,14 +69,14 @@ export default function App() {
         <TopBar
           locationName={hydrated ? displayLocationName : 'Loading…'}
           onLocationClick={() => setDrawerOpen((open) => !open)}
-          isLight={isLight}
-          textClasses={textClasses}
+          isLight={liveSkyTheme.isLight}
+          textClasses={liveSkyTheme.textClasses}
         />
         <HeroSection
           sunData={displaySunData}
           cityName={displayLocationName}
-          isLight={isLight}
-          textClasses={textClasses}
+          isLight={heroSkyTheme.isLight}
+          textClasses={heroSkyTheme.textClasses}
           isLive={isLiveDay}
         />
         <ContentSection

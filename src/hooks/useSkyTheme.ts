@@ -45,6 +45,24 @@ export function skyTextClassesForTone(tone: SkyTextTone): SkyTextClasses {
   return tone === 'onWarm' ? SKY_TEXT_ON_WARM : SKY_TEXT_INVERSE
 }
 
+/** Hero ink: forecast days always use inverse (AppShell stays on live bg). */
+export function heroSkyText(
+  isLive: boolean,
+  skyPhase: SkyPhase,
+): Pick<SkyTheme, 'isLight' | 'textClasses'> {
+  if (!isLive) {
+    return {
+      isLight: false,
+      textClasses: skyTextClassesForTone('inverse'),
+    }
+  }
+  const textTone = textToneForPhase(skyPhase)
+  return {
+    isLight: textTone === 'onWarm',
+    textClasses: skyTextClassesForTone(textTone),
+  }
+}
+
 function textToneForPhase(phase: SkyPhase): SkyTextTone {
   return phase === 'solar' ||
     phase === 'goldenHourMorning' ||

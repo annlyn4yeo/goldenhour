@@ -19,8 +19,10 @@ type SunArcProps = {
 
 function resolveTextClasses(
   isLight: boolean,
-  textClasses?: SkyTextClasses,
+  textClasses: SkyTextClasses | undefined,
+  isLive: boolean,
 ): SkyTextClasses {
+  if (!isLive) return skyTextClassesForTone('inverse')
   return textClasses ?? skyTextClassesForTone(isLight ? 'onWarm' : 'inverse')
 }
 
@@ -183,7 +185,7 @@ export default function SunArc({
   textClasses,
   isLive = true,
 }: SunArcProps) {
-  const ink = resolveTextClasses(isLight, textClasses)
+  const ink = resolveTextClasses(isLight, textClasses, isLive)
   const uid = useId().replace(/:/g, '')
   const [now, setNow] = useState(() => new Date())
 
