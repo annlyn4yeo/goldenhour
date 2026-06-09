@@ -66,22 +66,6 @@ export async function reverseGeocode(lat: number, lng: number): Promise<Place> {
   return toPlace(result)
 }
 
-export async function searchCities(query: string): Promise<Place[]> {
-  const trimmed = query.trim()
-  if (trimmed.length < 2) return []
-
-  const response = await nominatimFetch(
-    `/search?q=${encodeURIComponent(trimmed)}&format=json&addressdetails=1&limit=5`,
-  )
-
-  if (!response.ok) {
-    throw new Error('City search is unavailable right now.')
-  }
-
-  const results = (await response.json()) as NominatimResult[]
-  return results.map(toPlace)
-}
-
 export function formatCoordinates(lat: number, lng: number): string {
   return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
 }

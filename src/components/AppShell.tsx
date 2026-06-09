@@ -1,8 +1,6 @@
 import type { ReactNode } from 'react'
 import type { SkyPhase } from '../hooks/useSunData'
 
-export type { SkyPhase }
-
 type AppShellProps = {
   skyPhase: SkyPhase
   children: ReactNode

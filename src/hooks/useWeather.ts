@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useMemo } from 'react'
 import type { WeatherCategory } from '../lib/weather'
+import useFetch from './useFetch'
 
 export type WeatherCondition =
   | 'clear'
@@ -46,6 +47,30 @@ type OpenMeteoResponse = {
   }
 }
 
+const WEATHER_CONDITION_CATEGORY: Record<WeatherCondition, WeatherCategory> = {
+  clear: 'clear',
+  partlyCloudy: 'partlyCloudy',
+  cloudy: 'partlyCloudy',
+  overcast: 'overcast',
+  foggy: 'overcast',
+  rainy: 'precipitation',
+}
+
+const WMO_WEATHER_CODE: Record<number, WeatherCondition> = {
+  0: 'clear',
+  1: 'partlyCloudy',
+  2: 'cloudy',
+  3: 'overcast',
+  45: 'foggy',
+  48: 'foggy',
+}
+
+const WMO_WEATHER_CODE_RANGES: Array<[number, number, WeatherCondition]> = [
+  [51, 67, 'rainy'],
+  [71, 77, 'rainy'],
+  [80, 99, 'rainy'],
+]
+
 function isValidCoords(coords: Coords | null): coords is Coords {
   if (!coords) return false
   const { lat, lng } = coords
@@ -60,33 +85,17 @@ function isValidCoords(coords: Coords | null): coords is Coords {
 }
 
 export function weatherConditionToCategory(condition: WeatherCondition): WeatherCategory {
-  switch (condition) {
-    case 'clear':
-      return 'clear'
-    case 'partlyCloudy':
-    case 'cloudy':
-      return 'partlyCloudy'
-    case 'overcast':
-    case 'foggy':
-      return 'overcast'
-    case 'rainy':
-      return 'precipitation'
-  }
+  return WEATHER_CONDITION_CATEGORY[condition]
 }
 
-export function mapWmoWeatherCode(code: number): WeatherCondition {
-  if (code === 0) return 'clear'
-  if (code === 1) return 'partlyCloudy'
-  if (code === 2) return 'cloudy'
-  if (code === 3) return 'overcast'
-  if (code === 45 || code === 48) return 'foggy'
-  if (
-    (code >= 51 && code <= 67) ||
-    (code >= 71 && code <= 77) ||
-    (code >= 80 && code <= 99)
-  ) {
-    return 'rainy'
+function mapWmoWeatherCode(code: number): WeatherCondition {
+  const exact = WMO_WEATHER_CODE[code]
+  if (exact) return exact
+
+  for (const [min, max, condition] of WMO_WEATHER_CODE_RANGES) {
+    if (code >= min && code <= max) return condition
   }
+
   return 'partlyCloudy'
 }
 
@@ -112,7 +121,7 @@ function computeWeeklyCloudCover(hourly: OpenMeteoResponse['hourly']): number[] 
   const averages = sortedDays.map((day) => {
     const values = dailyBuckets.get(day) ?? []
     if (values.length === 0) return 0
-    return Math.round(values.reduce((sum, v) => sum + v, 0) / values.length)
+    return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)
   })
 
   while (averages.length < 7) {
@@ -136,7 +145,7 @@ function parseOpenMeteoResponse(data: OpenMeteoResponse): WeatherData {
   }
 }
 
-async function fetchWeather(lat: number, lng: number): Promise<WeatherData> {
+function buildWeatherUrl(lat: number, lng: number): string {
   const url = new URL('https://api.open-meteo.com/v1/forecast')
   url.searchParams.set('latitude', String(lat))
   url.searchParams.set('longitude', String(lng))
@@ -144,58 +153,28 @@ async function fetchWeather(lat: number, lng: number): Promise<WeatherData> {
   url.searchParams.set('hourly', 'cloud_cover')
   url.searchParams.set('forecast_days', '7')
   url.searchParams.set('timezone', 'auto')
-
-  const response = await fetch(url)
-  if (!response.ok) {
-    throw new Error('Unable to load weather forecast.')
-  }
-
-  const data = (await response.json()) as OpenMeteoResponse
-  return parseOpenMeteoResponse(data)
+  return url.toString()
 }
 
 export default function useWeather({ coords }: UseWeatherParams): UseWeatherReturn {
-  const [weather, setWeather] = useState<WeatherData | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
   const coordsKey = coords ? `${coords.lat},${coords.lng}` : null
+  const enabled = isValidCoords(coords)
 
-  useEffect(() => {
-    if (!isValidCoords(coords)) {
-      setWeather(null)
-      setLoading(false)
-      setError(null)
-      return
-    }
+  const weatherUrl = useMemo(
+    () => (enabled ? buildWeatherUrl(coords.lat, coords.lng) : null),
+    [coordsKey, enabled],
+  )
 
-    let cancelled = false
+  const { data: raw, loading, error } = useFetch<OpenMeteoResponse>(
+    weatherUrl,
+    [coordsKey],
+    { enabled, errorMessage: 'Unable to load weather forecast.' },
+  )
 
-    void (async () => {
-      setLoading(true)
-      setError(null)
-
-      try {
-        const data = await fetchWeather(coords.lat, coords.lng)
-        if (!cancelled) {
-          setWeather(data)
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setWeather(null)
-          setError(err instanceof Error ? err.message : 'Weather unavailable.')
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [coordsKey])
+  const weather = useMemo(
+    () => (raw ? parseOpenMeteoResponse(raw) : null),
+    [raw],
+  )
 
   return { weather, loading, error }
 }

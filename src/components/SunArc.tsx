@@ -1,13 +1,15 @@
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { skyTextClassesForTone, type SkyTextClasses } from '../hooks/useSkyTheme'
-import type { SunData } from '../hooks/useSunData'
+import useNow from '../hooks/useNow'
+import type { SkyPhase, SunData } from '../hooks/useSunData'
 import {
   daylightProgressToPoint,
   describeDaylightArc,
-  formatDuration,
   formatTime,
   isValidSunTime,
 } from '../lib/goldenHour'
+import SunArcCountdown, { formatCountdownFromMinutes } from './SunArcCountdown'
+import SunArcSvg, { ARC_COLORS, CX, CY, HORIZON_Y, RADIUS } from './SunArcSvg'
 
 type SunArcProps = {
   sunData: SunData
@@ -15,6 +17,32 @@ type SunArcProps = {
   isLight?: boolean
   textClasses?: SkyTextClasses
   isLive?: boolean
+}
+
+const PHASE_GLOW: Record<SkyPhase, string> = {
+  goldenHourMorning: 'drop-shadow(0 0 32px rgba(240, 144, 64, 0.55))',
+  goldenHourEvening: 'drop-shadow(0 0 32px rgba(240, 144, 64, 0.55))',
+  blueHourMorning: 'drop-shadow(0 0 28px rgba(91, 111, 212, 0.55))',
+  blueHourEvening: 'drop-shadow(0 0 28px rgba(91, 111, 212, 0.55))',
+  solar: 'drop-shadow(0 0 36px rgba(255, 213, 74, 0.65))',
+  dawn: 'drop-shadow(0 0 24px rgba(196, 92, 46, 0.45))',
+  dusk: 'drop-shadow(0 0 24px rgba(196, 92, 46, 0.45))',
+  night: 'drop-shadow(0 0 20px rgba(91, 111, 212, 0.35))',
+}
+
+type ArcMarker = {
+  id: string
+  label: string
+  time: Date
+  progress: number
+  kind: 'primary' | 'golden'
+}
+
+type ArcSegment = {
+  id: string
+  start: number
+  end: number
+  color: string
 }
 
 function resolveTextClasses(
@@ -35,30 +63,6 @@ function displayLocationName(cityName?: string): string | null {
   return cityName
 }
 
-const CX = 400
-const CY = 210
-const RADIUS = 180
-const HORIZON_Y = 268
-const VIEWBOX = '0 0 800 300'
-const TRACK_WIDTH = 4
-const SEGMENT_WIDTH = 7
-
-const ARC_COLORS = {
-  track: 'rgba(250, 249, 246, 0.22)',
-  night: '#1a1d3a',
-  blueHour: '#5b6fd4',
-  goldenHour: '#f09040',
-  solar: '#ffd54a',
-} as const
-
-type ArcMarker = {
-  id: string
-  label: string
-  time: Date
-  progress: number
-  kind: 'primary' | 'golden'
-}
-
 function timeToArcProgress(sunrise: Date, sunset: Date, time: Date): number {
   const span = sunset.getTime() - sunrise.getTime()
   if (span <= 0) return 0
@@ -69,11 +73,7 @@ function clampProgress(value: number): number {
   return Math.min(1, Math.max(0, value))
 }
 
-function timeProgressAtNow(
-  sunrise: Date,
-  sunset: Date,
-  now: Date,
-): number {
+function timeProgressAtNow(sunrise: Date, sunset: Date, now: Date): number {
   if (now.getTime() < sunrise.getTime()) return 0
   if (now.getTime() > sunset.getTime()) return 1
   return clampProgress(timeToArcProgress(sunrise, sunset, now))
@@ -104,59 +104,6 @@ function getSunDisplayPoint(
   return { ...daylightProgressToPoint(progress, cx, cy, radius), belowHorizon: false }
 }
 
-function formatCountdownFromMinutes(totalMinutes: number): string {
-  if (totalMinutes <= 0) return 'now'
-  return formatDuration(totalMinutes * 60_000)
-}
-
-function FlipChar({ char }: { char: string }) {
-  const [display, setDisplay] = useState(char)
-  const [phase, setPhase] = useState<'idle' | 'out' | 'in'>('idle')
-  const isFirstRender = useRef(true)
-
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false
-      return
-    }
-
-    setPhase('out')
-    const outTimer = window.setTimeout(() => {
-      setDisplay(char)
-      setPhase('in')
-      window.setTimeout(() => setPhase('idle'), 75)
-    }, 75)
-
-    return () => window.clearTimeout(outTimer)
-  }, [char])
-
-  const animClass =
-    phase === 'out'
-      ? 'animate-countdown-flip-out'
-      : phase === 'in'
-        ? 'animate-countdown-flip-in'
-        : ''
-
-  return (
-    <span
-      className={`inline-block origin-center ${animClass}`}
-      style={{ display: char === ' ' ? 'inline' : 'inline-block' }}
-    >
-      {display === ' ' ? '\u00a0' : display}
-    </span>
-  )
-}
-
-function AnimatedCountdown({ text }: { text: string }) {
-  return (
-    <span className="inline">
-      {text.split('').map((char, index) => (
-        <FlipChar key={index} char={char} />
-      ))}
-    </span>
-  )
-}
-
 function formatTodayDate(date: Date): string {
   return new Intl.DateTimeFormat(undefined, {
     weekday: 'long',
@@ -173,31 +120,6 @@ function formatForecastGoldenHours(sunData: SunData): string {
     ? formatTime(sunData.goldenHourEveningStart)
     : '—'
   return `Morning ${morning} · Evening ${evening}`
-}
-
-function getPhaseGlow(skyPhase: SunData['currentSkyPhase']): string {
-  switch (skyPhase) {
-    case 'goldenHourMorning':
-    case 'goldenHourEvening':
-      return 'drop-shadow(0 0 32px rgba(240, 144, 64, 0.55))'
-    case 'blueHourMorning':
-    case 'blueHourEvening':
-      return 'drop-shadow(0 0 28px rgba(91, 111, 212, 0.55))'
-    case 'solar':
-      return 'drop-shadow(0 0 36px rgba(255, 213, 74, 0.65))'
-    case 'dawn':
-    case 'dusk':
-      return 'drop-shadow(0 0 24px rgba(196, 92, 46, 0.45))'
-    case 'night':
-      return 'drop-shadow(0 0 20px rgba(91, 111, 212, 0.35))'
-  }
-}
-
-type ArcSegment = {
-  id: string
-  start: number
-  end: number
-  color: string
 }
 
 function buildArcSegments(sunData: SunData): ArcSegment[] {
@@ -220,12 +142,6 @@ function buildArcSegments(sunData: SunData): ArcSegment[] {
   ]
 }
 
-function labelYOffset(progress: number): number {
-  if (progress < 0.12) return 20
-  if (progress > 0.88) return 20
-  return 22
-}
-
 export default function SunArc({
   sunData,
   cityName,
@@ -237,13 +153,7 @@ export default function SunArc({
   const uid = useId().replace(/:/g, '')
   const arcPathRef = useRef<SVGPathElement>(null)
   const [arcLength, setArcLength] = useState<number | null>(null)
-  const [now, setNow] = useState(() => new Date())
-
-  useEffect(() => {
-    if (!isLive) return
-    const intervalId = window.setInterval(() => setNow(new Date()), 1_000)
-    return () => window.clearInterval(intervalId)
-  }, [isLive])
+  const now = useNow(1_000, isLive)
 
   const hasValidDaylight =
     isValidSunTime(sunData.sunrise) && isValidSunTime(sunData.sunset)
@@ -326,8 +236,18 @@ export default function SunArc({
       )
     : 0
 
-  const phaseGlow = getPhaseGlow(sunData.currentSkyPhase)
+  const phaseGlow = PHASE_GLOW[sunData.currentSkyPhase]
   const locationLabel = displayLocationName(cityName)
+  const trackPath = hasValidDaylight
+    ? describeDaylightArc(CX, CY, RADIUS, 0, 1)
+    : ''
+
+  useLayoutEffect(() => {
+    if (!hasValidDaylight || !arcPathRef.current) return
+    setArcLength(arcPathRef.current.getTotalLength())
+  }, [hasValidDaylight, trackPath])
+
+  const countdownText = formatCountdownFromMinutes(minutesAway)
 
   if (!hasValidDaylight) {
     return (
@@ -342,178 +262,23 @@ export default function SunArc({
     )
   }
 
-  const trackPath = describeDaylightArc(CX, CY, RADIUS, 0, 1)
-
-  useLayoutEffect(() => {
-    if (arcPathRef.current) {
-      setArcLength(arcPathRef.current.getTotalLength())
-    }
-  }, [trackPath])
-
-  const countdownText = formatCountdownFromMinutes(minutesAway)
-
   return (
     <div
       className="w-full max-w-4xl"
       data-sky-phase={sunData.currentSkyPhase}
     >
-      <svg
-        viewBox={VIEWBOX}
-        overflow="visible"
-        role="img"
-        aria-label="Sun arc from sunrise to sunset with current position"
-        className="w-full overflow-visible"
-      >
-        <defs>
-          <radialGradient id={`sun-glow-${uid}`} cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#ffe082" stopOpacity="1" />
-            <stop offset="45%" stopColor="#ffd54a" stopOpacity="0.6" />
-            <stop offset="100%" stopColor="#ffd54a" stopOpacity="0" />
-          </radialGradient>
-          <linearGradient id={`arc-spectrum-${uid}`} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor={ARC_COLORS.blueHour} />
-            <stop offset="12%" stopColor={ARC_COLORS.goldenHour} />
-            <stop offset="50%" stopColor={ARC_COLORS.solar} />
-            <stop offset="88%" stopColor={ARC_COLORS.goldenHour} />
-            <stop offset="100%" stopColor={ARC_COLORS.blueHour} />
-          </linearGradient>
-          <filter id={`sun-bloom-${uid}`} x="-100%" y="-100%" width="300%" height="300%">
-            <feGaussianBlur stdDeviation="4" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-          <filter id={`arc-glow-${uid}`} x="-20%" y="-50%" width="140%" height="200%">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-
-        <line
-          x1={32}
-          y1={HORIZON_Y}
-          x2={768}
-          y2={HORIZON_Y}
-          stroke="rgba(250, 249, 246, 0.35)"
-          strokeWidth={1.5}
-        />
-
-        <path
-          d={trackPath}
-          fill="none"
-          stroke={ARC_COLORS.track}
-          strokeWidth={TRACK_WIDTH}
-          strokeLinecap="round"
-        />
-
-        <path
-          ref={arcPathRef}
-          d={trackPath}
-          fill="none"
-          stroke={`url(#arc-spectrum-${uid})`}
-          strokeWidth={SEGMENT_WIDTH}
-          strokeLinecap="round"
-          opacity={0.92}
-          filter={`url(#arc-glow-${uid})`}
-          className={arcLength != null ? 'animate-arc-draw' : undefined}
-          style={
-            arcLength != null
-              ? { ['--arc-length' as string]: `${arcLength}px` }
-              : undefined
-          }
-        />
-
-        {segments.map((segment) => {
-          const start = clampProgress(segment.start)
-          const end = clampProgress(segment.end)
-          if (end <= start) return null
-
-          return (
-            <path
-              key={segment.id}
-              d={describeDaylightArc(CX, CY, RADIUS, start, end)}
-              fill="none"
-              stroke={segment.color}
-              strokeWidth={SEGMENT_WIDTH + 1}
-              strokeLinecap="butt"
-              opacity={0.55}
-            />
-          )
-        })}
-
-        {markers.map((marker) => {
-          const { x, y } = daylightProgressToPoint(marker.progress, CX, CY, RADIUS)
-          const isPrimary = marker.kind === 'primary'
-          const isNoon = marker.id === 'solar-noon'
-
-          return (
-            <g key={marker.id}>
-              {isPrimary && (
-                <line
-                  x1={x}
-                  y1={y}
-                  x2={x}
-                  y2={HORIZON_Y + 2}
-                  stroke="rgba(250, 249, 246, 0.28)"
-                  strokeWidth={1}
-                  strokeDasharray="4 4"
-                  strokeLinecap="round"
-                />
-              )}
-              <circle
-                cx={x}
-                cy={y}
-                r={isPrimary ? 4 : 2.5}
-                fill={isPrimary ? 'rgba(250, 249, 246, 0.9)' : ARC_COLORS.goldenHour}
-                stroke={isPrimary ? 'rgba(250, 249, 246, 0.4)' : 'none'}
-                strokeWidth={1}
-              />
-              {isPrimary && marker.label && (
-                <text
-                  x={x}
-                  y={HORIZON_Y + labelYOffset(marker.progress)}
-                  textAnchor="middle"
-                  className={isNoon ? ink.fill : ink.fillMuted}
-                  style={{
-                    fontFamily: 'Inter, sans-serif',
-                    fontSize: isNoon ? 13 : 12,
-                    fontWeight: isNoon ? 600 : 500,
-                    letterSpacing: '0.02em',
-                  }}
-                >
-                  {marker.label}
-                </text>
-              )}
-            </g>
-          )
-        })}
-
-        <g className="animate-sun-dot-fade-in" style={{ filter: phaseGlow }}>
-          <circle
-            cx={sunDisplay.x}
-            cy={sunDisplay.y}
-            r={22}
-            fill={`url(#sun-glow-${uid})`}
-            opacity={sunDisplay.belowHorizon ? 0.15 : sunAboveHorizon ? 0.85 : 0.35}
-            className="motion-safe:transition-all motion-safe:duration-1000 motion-safe:ease-in-out"
-          />
-          <circle
-            cx={sunDisplay.x}
-            cy={sunDisplay.y}
-            r={9}
-            fill="#ffd54a"
-            stroke="rgba(250, 249, 246, 0.95)"
-            strokeWidth={2}
-            opacity={sunDisplay.belowHorizon ? 0.2 : sunAboveHorizon ? 1 : 0.5}
-            filter={`url(#sun-bloom-${uid})`}
-            className="motion-safe:transition-all motion-safe:duration-1000 motion-safe:ease-in-out"
-          />
-        </g>
-      </svg>
+      <SunArcSvg
+        uid={uid}
+        trackPath={trackPath}
+        arcPathRef={arcPathRef}
+        arcLength={arcLength}
+        segments={segments}
+        markers={markers}
+        sunDisplay={sunDisplay}
+        sunAboveHorizon={sunAboveHorizon}
+        phaseGlow={phaseGlow}
+        ink={ink}
+      />
 
       <div className="mt-1 text-center">
         <h1
@@ -527,7 +292,7 @@ export default function SunArc({
         >
           {isLive ? (
             <>
-              in <AnimatedCountdown text={countdownText} />
+              in <SunArcCountdown text={countdownText} />
             </>
           ) : (
             formatForecastGoldenHours(sunData)

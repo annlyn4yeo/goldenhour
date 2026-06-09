@@ -1,7 +1,9 @@
+import { SECTION_TITLE_CLASS } from './uiClasses'
+
 export default function ReminderWidget() {
   return (
     <article className="rounded-2xl border-[0.5px] border-surface-border bg-surface-card px-6 py-8 md:px-8">
-      <h2 className="font-display text-[20px] text-ink-primary lg:text-[24px]">
+      <h2 className={SECTION_TITLE_CLASS}>
         set a reminder
       </h2>
       <p className="mt-2 text-body text-ink-secondary">

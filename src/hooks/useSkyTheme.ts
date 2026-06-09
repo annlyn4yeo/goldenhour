@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import type { SkyPhase } from './useSunData'
 
-export const SKY_BG_COLORS: Record<SkyPhase, string> = {
+const SKY_BG_COLORS: Record<SkyPhase, string> = {
   night: '#0b0c1a',
   dawn: '#1a1035',
   blueHourMorning: '#1e2d6e',
@@ -12,7 +12,7 @@ export const SKY_BG_COLORS: Record<SkyPhase, string> = {
   dusk: '#0f0d2a',
 }
 
-export type SkyTextTone = 'onWarm' | 'inverse'
+type SkyTextTone = 'onWarm' | 'inverse'
 
 export type SkyTextClasses = {
   text: string

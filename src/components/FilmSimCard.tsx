@@ -7,6 +7,7 @@ import {
 } from '../data/filmSims'
 import type { SkyPhase } from '../hooks/useSunData'
 import type { WeatherCategory } from '../lib/weather'
+import { SURFACE_MUTED_CARD_CLASS } from './uiClasses'
 
 type FilmSimCardProps = {
   currentSkyPhase: SkyPhase
@@ -65,7 +66,7 @@ export default function FilmSimCard({ currentSkyPhase, weather }: FilmSimCardPro
     <div>
       <article
         key={currentSkyPhase}
-        className="animate-filmsim-enter rounded-2xl bg-surface-muted px-6 py-8 md:px-10 md:py-10"
+        className={`animate-filmsim-enter ${SURFACE_MUTED_CARD_CLASS} md:py-10`}
       >
         <p className="text-caption text-ink-tertiary">
           recommended for {phaseLabel}

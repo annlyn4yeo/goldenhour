@@ -1,4 +1,5 @@
 import type { SunDayData } from '../hooks/useSunData'
+import { SECTION_TITLE_CLASS } from './uiClasses'
 import {
   describeDaylightArc,
   formatDuration,
@@ -172,9 +173,7 @@ export default function ForecastStrip({
   return (
     <section>
       <header className="mb-6">
-        <h2 className="font-display text-[20px] text-ink-primary lg:text-[24px]">
-          the week ahead
-        </h2>
+        <h2 className={SECTION_TITLE_CLASS}>the week ahead</h2>
         <p className="mt-1 text-body text-ink-secondary">{todayFullDate}</p>
       </header>
 

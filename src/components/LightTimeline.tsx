@@ -1,6 +1,8 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import useNow from '../hooks/useNow'
 import type { SunDayData } from '../hooks/useSunData'
 import { formatDuration, formatTime, isValidSunTime } from '../lib/goldenHour'
+import { SECTION_TITLE_CLASS } from './uiClasses'
 
 type LightTimelineProps = {
   sunData: SunDayData
@@ -142,19 +144,9 @@ function TimelineRow({ event, isLive, now, isLast, rowRef }: TimelineRowProps) {
 }
 
 export default function LightTimeline({ sunData, isLive = false }: LightTimelineProps) {
-  const [now, setNow] = useState(() => new Date())
+  const now = useNow(60_000, isLive)
   const rowRefs = useRef<(HTMLDivElement | null)[]>([])
   const [highlight, setHighlight] = useState<{ top: number; height: number } | null>(null)
-
-  useEffect(() => {
-    if (!isLive) return
-
-    const intervalId = window.setInterval(() => {
-      setNow(new Date())
-    }, 60_000)
-
-    return () => window.clearInterval(intervalId)
-  }, [isLive])
 
   const events = useMemo(() => buildTimelineEvents(sunData), [sunData])
   const activeIndex = useMemo(
@@ -181,7 +173,7 @@ export default function LightTimeline({ sunData, isLive = false }: LightTimeline
 
   return (
     <aside className="w-full">
-      <h2 className="font-display text-[20px] text-ink-primary lg:text-[24px]">{title}</h2>
+      <h2 className={SECTION_TITLE_CLASS}>{title}</h2>
 
       <div className="relative mt-5">
         {highlight && (

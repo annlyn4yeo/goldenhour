@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import SunCalc from 'suncalc'
 import { formatDuration, isValidSunTime } from '../lib/goldenHour'
+import useNow from './useNow'
 
 export type SkyPhase =
   | 'night'
@@ -71,29 +72,36 @@ function windowDurationMinutes(start: Date, end: Date): number {
   return Math.max(0, Math.round((end.getTime() - start.getTime()) / 60_000))
 }
 
-function computeSunDayData(date: Date, lat: number, lng: number): SunDayData {
+function readSunTimes(date: Date, lat: number, lng: number) {
   const times = SunCalc.getTimes(date, lat, lng)
+  return {
+    astronomicalDawn: times.nightEnd,
+    nauticalDawn: times.nauticalDawn,
+    civilDawn: times.dawn,
+    sunrise: times.sunrise,
+    sunriseEnd: times.sunriseEnd,
+    goldenHourMorningStart: times.sunrise,
+    goldenHourMorningEnd: times.goldenHourEnd,
+    solarNoon: times.solarNoon,
+    goldenHourEveningStart: times.goldenHour,
+    goldenHourEveningEnd: times.sunset,
+    sunsetStart: times.sunsetStart,
+    sunset: times.sunset,
+    civilDusk: times.dusk,
+    nauticalDusk: times.nauticalDusk,
+    astronomicalDusk: times.night,
+    night: times.night,
+  }
+}
 
-  const astronomicalDawn = times.nightEnd
-  const nauticalDawn = times.nauticalDawn
-  const civilDawn = times.dawn
-  const sunrise = times.sunrise
-  const sunriseEnd = times.sunriseEnd
-  const goldenHourMorningStart = times.sunrise
-  const goldenHourMorningEnd = times.goldenHourEnd
-  const solarNoon = times.solarNoon
-  const goldenHourEveningStart = times.goldenHour
-  const goldenHourEveningEnd = times.sunset
-  const sunsetStart = times.sunsetStart
-  const sunset = times.sunset
-  const civilDusk = times.dusk
-  const nauticalDusk = times.nauticalDusk
-  const astronomicalDusk = times.night
-  const night = times.night
-
-  const blueHourMorning = { start: civilDawn, end: sunrise }
-  const blueHourEvening = { start: sunset, end: nauticalDusk }
-
+function computeDaylightMetrics(
+  sunrise: Date,
+  sunset: Date,
+  goldenHourMorningStart: Date,
+  goldenHourMorningEnd: Date,
+  goldenHourEveningStart: Date,
+  goldenHourEveningEnd: Date,
+) {
   const dayLengthMs =
     isValidSunTime(sunrise) && isValidSunTime(sunset)
       ? sunset.getTime() - sunrise.getTime()
@@ -104,29 +112,75 @@ function computeSunDayData(date: Date, lat: number, lng: number): SunDayData {
     windowDurationMinutes(goldenHourEveningStart, goldenHourEveningEnd)
 
   return {
-    date,
-    astronomicalDawn,
-    nauticalDawn,
-    civilDawn,
-    sunrise,
-    sunriseEnd,
-    goldenHourMorningStart,
-    goldenHourMorningEnd,
-    solarNoon,
-    goldenHourEveningStart,
-    goldenHourEveningEnd,
-    sunsetStart,
-    sunset,
-    civilDusk,
-    nauticalDusk,
-    astronomicalDusk,
-    night,
-    blueHourMorning,
-    blueHourEvening,
     dayLength: formatDuration(dayLengthMs),
     goldenHourTotalMinutes,
   }
 }
+
+function computeSunDayData(date: Date, lat: number, lng: number): SunDayData {
+  const times = readSunTimes(date, lat, lng)
+  const metrics = computeDaylightMetrics(
+    times.sunrise,
+    times.sunset,
+    times.goldenHourMorningStart,
+    times.goldenHourMorningEnd,
+    times.goldenHourEveningStart,
+    times.goldenHourEveningEnd,
+  )
+
+  return {
+    date,
+    ...times,
+    blueHourMorning: { start: times.civilDawn, end: times.sunrise },
+    blueHourEvening: { start: times.sunset, end: times.nauticalDusk },
+    ...metrics,
+  }
+}
+
+type PhaseCheck = {
+  phase: SkyPhase
+  isActive: (day: SunDayData, nowMs: number) => boolean
+}
+
+const SKY_PHASE_CHECKS: PhaseCheck[] = [
+  {
+    phase: 'night',
+    isActive: (day, nowMs) =>
+      isValidSunTime(day.astronomicalDawn) &&
+      isValidSunTime(day.astronomicalDusk) &&
+      (nowMs < day.astronomicalDawn.getTime() || nowMs >= day.astronomicalDusk.getTime()),
+  },
+  {
+    phase: 'dawn',
+    isActive: (day, nowMs) =>
+      isValidSunTime(day.civilDawn) && nowMs < day.civilDawn.getTime(),
+  },
+  {
+    phase: 'blueHourMorning',
+    isActive: (day, nowMs) =>
+      isValidSunTime(day.sunrise) && nowMs < day.sunrise.getTime(),
+  },
+  {
+    phase: 'goldenHourMorning',
+    isActive: (day, nowMs) =>
+      isValidSunTime(day.goldenHourMorningEnd) && nowMs < day.goldenHourMorningEnd.getTime(),
+  },
+  {
+    phase: 'solar',
+    isActive: (day, nowMs) =>
+      isValidSunTime(day.goldenHourEveningStart) && nowMs < day.goldenHourEveningStart.getTime(),
+  },
+  {
+    phase: 'goldenHourEvening',
+    isActive: (day, nowMs) =>
+      isValidSunTime(day.sunset) && nowMs < day.sunset.getTime(),
+  },
+  {
+    phase: 'blueHourEvening',
+    isActive: (day, nowMs) =>
+      isValidSunTime(day.nauticalDusk) && nowMs < day.nauticalDusk.getTime(),
+  },
+]
 
 function getCurrentSkyPhase(day: SunDayData, coords: Coords, now: Date): SkyPhase {
   if (!isValidSunTime(day.sunrise) || !isValidSunTime(day.sunset)) {
@@ -135,40 +189,8 @@ function getCurrentSkyPhase(day: SunDayData, coords: Coords, now: Date): SkyPhas
   }
 
   const nowMs = now.getTime()
-
-  if (
-    isValidSunTime(day.astronomicalDawn) &&
-    isValidSunTime(day.astronomicalDusk) &&
-    (nowMs < day.astronomicalDawn.getTime() || nowMs >= day.astronomicalDusk.getTime())
-  ) {
-    return 'night'
-  }
-
-  if (isValidSunTime(day.civilDawn) && nowMs < day.civilDawn.getTime()) {
-    return 'dawn'
-  }
-
-  if (isValidSunTime(day.sunrise) && nowMs < day.sunrise.getTime()) {
-    return 'blueHourMorning'
-  }
-
-  if (isValidSunTime(day.goldenHourMorningEnd) && nowMs < day.goldenHourMorningEnd.getTime()) {
-    return 'goldenHourMorning'
-  }
-
-  if (isValidSunTime(day.goldenHourEveningStart) && nowMs < day.goldenHourEveningStart.getTime()) {
-    return 'solar'
-  }
-
-  if (isValidSunTime(day.sunset) && nowMs < day.sunset.getTime()) {
-    return 'goldenHourEvening'
-  }
-
-  if (isValidSunTime(day.nauticalDusk) && nowMs < day.nauticalDusk.getTime()) {
-    return 'blueHourEvening'
-  }
-
-  return 'dusk'
+  const match = SKY_PHASE_CHECKS.find(({ isActive }) => isActive(day, nowMs))
+  return match?.phase ?? 'dusk'
 }
 
 type UpcomingWindow = {
@@ -194,6 +216,10 @@ function getUpcomingWindows(day: SunDayData): UpcomingWindow[] {
     .sort((a, b) => a.time.getTime() - b.time.getTime())
 }
 
+function minutesUntil(from: Date, to: Date): number {
+  return Math.max(0, Math.round((to.getTime() - from.getTime()) / 60_000))
+}
+
 function getNextWindow(
   day: SunDayData,
   forecast: SunDayData[],
@@ -204,7 +230,7 @@ function getNextWindow(
     return {
       label: todayNext.label,
       time: todayNext.time,
-      minutesAway: Math.max(0, Math.round((todayNext.time.getTime() - now.getTime()) / 60_000)),
+      minutesAway: minutesUntil(now, todayNext.time),
     }
   }
 
@@ -214,18 +240,14 @@ function getNextWindow(
       return {
         label: nextDayWindow.label,
         time: nextDayWindow.time,
-        minutesAway: Math.max(
-          0,
-          Math.round((nextDayWindow.time.getTime() - now.getTime()) / 60_000),
-        ),
+        minutesAway: minutesUntil(now, nextDayWindow.time),
       }
     }
   }
 
-  const fallback = day.sunrise
   return {
     label: 'Sunrise',
-    time: fallback,
+    time: day.sunrise,
     minutesAway: 0,
   }
 }
@@ -270,7 +292,7 @@ export default function useSunData({
   coords,
   targetDate,
 }: UseSunDataParams): SunData {
-  const [now, setNow] = useState(() => new Date())
+  const now = useNow(60_000)
 
   const effectiveDateKey = targetDate
     ? toDateKey(startOfLocalDay(targetDate))
@@ -293,14 +315,6 @@ export default function useSunData({
       forecast: days,
     }
   }, [effectiveDateKey, coordsKey, targetDate])
-
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      setNow(new Date())
-    }, 60_000)
-
-    return () => window.clearInterval(intervalId)
-  }, [])
 
   const sunPosition = useMemo(
     () => getSunPosition(coords, now),

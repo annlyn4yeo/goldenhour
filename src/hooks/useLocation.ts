@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { reverseGeocode } from '../lib/geocoding'
+import useAsync from './useAsync'
+import { fetchJson } from './useFetch'
 
 const DEFAULT_COORDS = { lat: 12.9716, lng: 77.5946 }
 const DEFAULT_CITY_NAME = 'Bangalore, India'
@@ -23,18 +25,18 @@ type OpenMeteoSearchResponse = {
   results?: Array<{ name: string }>
 }
 
-async function lookupCityNameOpenMeteo(lat: number, lng: number): Promise<string | null> {
+function buildOpenMeteoSearchUrl(lat: number, lng: number): string {
   const query = `${lat.toFixed(2)},${lng.toFixed(2)}`
   const url = new URL('https://geocoding-api.open-meteo.com/v1/search')
   url.searchParams.set('name', query)
   url.searchParams.set('count', '1')
   url.searchParams.set('language', 'en')
   url.searchParams.set('format', 'json')
+  return url.toString()
+}
 
-  const response = await fetch(url)
-  if (!response.ok) return null
-
-  const data = (await response.json()) as OpenMeteoSearchResponse
+async function lookupCityNameOpenMeteo(lat: number, lng: number): Promise<string | null> {
+  const data = await fetchJson<OpenMeteoSearchResponse>(buildOpenMeteoSearchUrl(lat, lng))
   return data.results?.[0]?.name ?? null
 }
 
@@ -56,38 +58,27 @@ async function resolveCityName(lat: number, lng: number): Promise<string | null>
 export default function useLocation(): UseLocationReturn {
   const [permissionState, setPermissionState] = useState<PermissionState>('pending')
   const [geoCoords, setGeoCoords] = useState<Coords | null>(null)
-  const [geocodedCityName, setGeocodedCityName] = useState<string | null>(null)
   const [manualCity, setManualCityState] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [geoResolved, setGeoResolved] = useState(false)
 
   useEffect(() => {
     if (!navigator.geolocation) {
       setPermissionState('denied')
-      setIsLoading(false)
+      setGeoResolved(true)
       return
     }
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const coords = {
+        setGeoCoords({
           lat: position.coords.latitude,
           lng: position.coords.longitude,
-        }
-        setGeoCoords(coords)
+        })
         setPermissionState('granted')
-
-        void (async () => {
-          try {
-            const name = await resolveCityName(coords.lat, coords.lng)
-            setGeocodedCityName(name)
-          } finally {
-            setIsLoading(false)
-          }
-        })()
       },
       () => {
         setPermissionState('denied')
-        setIsLoading(false)
+        setGeoResolved(true)
       },
       {
         enableHighAccuracy: false,
@@ -96,6 +87,20 @@ export default function useLocation(): UseLocationReturn {
       },
     )
   }, [])
+
+  const shouldResolveCity = permissionState === 'granted' && geoCoords !== null
+  const coordsKey = geoCoords ? `${geoCoords.lat},${geoCoords.lng}` : null
+
+  const { data: geocodedCityName, loading: geocoding } = useAsync(
+    () => resolveCityName(geoCoords!.lat, geoCoords!.lng),
+    [coordsKey],
+    { enabled: shouldResolveCity },
+  )
+
+  useEffect(() => {
+    if (!shouldResolveCity) return
+    if (!geocoding) setGeoResolved(true)
+  }, [shouldResolveCity, geocoding])
 
   const setManualCity = useCallback((city: string) => {
     const trimmed = city.trim()
@@ -119,6 +124,8 @@ export default function useLocation(): UseLocationReturn {
 
     return { coords: null, cityName: '' }
   }, [permissionState, geoCoords, geocodedCityName, manualCity])
+
+  const isLoading = !geoResolved
 
   return {
     coords,
