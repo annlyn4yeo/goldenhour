@@ -1,51 +1,81 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import CitySearch from './components/CitySearch'
+import {
+  formatCoordinates,
+  reverseGeocode,
+  type Place,
+} from './lib/geocoding'
+import ForecastStrip from './components/ForecastStrip'
 import {
   formatDuration,
-  formatTime,
   getActiveWindow,
-  getGoldenHourSchedule,
+  getLightSchedule,
   getNextWindow,
 } from './lib/goldenHour'
 
-type Location = {
-  lat: number
-  lng: number
+type Location = Place & {
+  source: 'geolocation' | 'search'
 }
 
 export default function App() {
   const [location, setLocation] = useState<Location | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [geoError, setGeoError] = useState<string | null>(null)
+  const [detecting, setDetecting] = useState(true)
+  const [resolvingPlace, setResolvingPlace] = useState(false)
   const [now, setNow] = useState(() => new Date())
 
-  const requestLocation = useCallback(() => {
+  const applyCoordinates = useCallback(
+    async (lat: number, lng: number, source: Location['source'], name?: string) => {
+      setResolvingPlace(true)
+      setGeoError(null)
+
+      try {
+        const place = name ? { lat, lng, name } : await reverseGeocode(lat, lng)
+        setLocation({ ...place, source })
+      } catch {
+        setLocation({
+          lat,
+          lng,
+          name: 'Unknown location',
+          source,
+        })
+      } finally {
+        setResolvingPlace(false)
+        setDetecting(false)
+      }
+    },
+    [],
+  )
+
+  const detectLocation = useCallback(() => {
     if (!navigator.geolocation) {
-      setError('Geolocation is not supported in this browser.')
-      setLoading(false)
+      setGeoError('Geolocation is not supported in this browser.')
+      setDetecting(false)
       return
     }
 
-    setLoading(true)
-    setError(null)
+    setDetecting(true)
+    setGeoError(null)
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setLocation({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        })
-        setLoading(false)
+        void applyCoordinates(
+          position.coords.latitude,
+          position.coords.longitude,
+          'geolocation',
+        )
       },
       () => {
-        setError('Unable to get your location. Check permissions and try again.')
-        setLoading(false)
+        setGeoError('Unable to detect your location. Search for a city below.')
+        setDetecting(false)
       },
+      { enableHighAccuracy: false, timeout: 10_000 },
     )
-  }, [])
+  }, [applyCoordinates])
 
   useEffect(() => {
-    requestLocation()
-  }, [requestLocation])
+    detectLocation()
+  }, [detectLocation])
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60_000)
@@ -54,17 +84,24 @@ export default function App() {
 
   const schedule = useMemo(() => {
     if (!location) return null
-    return getGoldenHourSchedule(now, location.lat, location.lng)
+    return getLightSchedule(now, location.lat, location.lng)
   }, [location, now])
 
   const activeWindow = schedule ? getActiveWindow(schedule.windows, now) : null
   const nextWindow = schedule ? getNextWindow(schedule.windows, now) : null
 
   const status = activeWindow
-    ? `${activeWindow.label} golden hour is happening now`
+    ? `${activeWindow.label} is happening now`
     : nextWindow
-      ? `Next golden hour in ${formatDuration(nextWindow.start.getTime() - now.getTime())}`
-      : 'No more golden hour today'
+      ? `${nextWindow.label} in ${formatDuration(nextWindow.start.getTime() - now.getTime())}`
+      : 'No more light windows today'
+
+  const handleCitySelect = (place: Place) => {
+    void applyCoordinates(place.lat, place.lng, 'search', place.name)
+  }
+
+  const showFallback = Boolean(geoError) && !location
+  const showSchedule = Boolean(schedule && location)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-rose-100 text-stone-900">
@@ -81,75 +118,64 @@ export default function App() {
           </p>
         </header>
 
-        {loading && (
-          <p className="rounded-2xl bg-white/70 px-5 py-4 text-center text-stone-600 shadow-sm backdrop-blur">
-            Locating you...
+        {(detecting || resolvingPlace) && (
+          <p className="mb-6 rounded-2xl bg-white/70 px-5 py-4 text-center text-stone-600 shadow-sm backdrop-blur">
+            {detecting ? 'Detecting your location...' : 'Looking up city name...'}
           </p>
         )}
 
-        {error && (
-          <div className="space-y-4 rounded-2xl bg-white/80 px-5 py-4 shadow-sm backdrop-blur">
-            <p className="text-center text-red-700">{error}</p>
+        {geoError && (
+          <div className="mb-6 rounded-2xl bg-white/80 px-5 py-4 shadow-sm backdrop-blur">
+            <p className="text-center text-red-700">{geoError}</p>
             <button
               type="button"
-              onClick={requestLocation}
-              className="w-full rounded-xl bg-amber-500 px-4 py-3 font-medium text-white transition hover:bg-amber-600"
+              onClick={detectLocation}
+              className="mt-4 w-full rounded-xl bg-amber-500 px-4 py-3 font-medium text-white transition hover:bg-amber-600"
             >
-              Try again
+              Try auto-detect again
             </button>
           </div>
         )}
 
-        {schedule && location && (
+        {(showFallback || !location) && !detecting && (
+          <section className="mb-6 rounded-3xl bg-white/80 p-6 shadow-sm backdrop-blur">
+            <CitySearch onSelect={handleCitySelect} disabled={resolvingPlace} />
+          </section>
+        )}
+
+        {showSchedule && location && (
           <div className="space-y-6">
             <section className="rounded-3xl bg-white/80 p-6 shadow-sm backdrop-blur">
               <p className="text-sm font-medium text-amber-700">Today</p>
               <p className="mt-2 text-lg font-medium text-stone-900">{status}</p>
-              <p className="mt-1 text-sm text-stone-500">
-                {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
-              </p>
+              <div className="mt-4 rounded-2xl bg-amber-50/80 px-4 py-3">
+                <p className="text-base font-semibold text-stone-900">{location.name}</p>
+                <p className="mt-1 text-sm text-stone-500">
+                  {formatCoordinates(location.lat, location.lng)}
+                </p>
+              </div>
             </section>
 
-            <section className="grid gap-4">
-              {schedule.windows.map((window) => {
-                const isActive = activeWindow?.label === window.label
+            <ForecastStrip
+              lat={location.lat}
+              lng={location.lng}
+              now={now}
+            />
 
-                return (
-                  <article
-                    key={window.label}
-                    className={`rounded-3xl border p-5 shadow-sm backdrop-blur ${
-                      isActive
-                        ? 'border-amber-400 bg-amber-100/80'
-                        : 'border-white/60 bg-white/70'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <h2 className="text-lg font-semibold text-stone-900">
-                          {window.label}
-                        </h2>
-                        <p className="mt-1 text-stone-600">
-                          {formatTime(window.start)} – {formatTime(window.end)}
-                        </p>
-                      </div>
-                      {isActive && (
-                        <span className="rounded-full bg-amber-500 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
-                          Now
-                        </span>
-                      )}
-                    </div>
-                  </article>
-                )
-              })}
+            <section className="rounded-3xl bg-white/80 p-6 shadow-sm backdrop-blur">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <p className="text-sm font-medium text-stone-700">Change location</p>
+                <button
+                  type="button"
+                  onClick={detectLocation}
+                  disabled={detecting || resolvingPlace}
+                  className="rounded-lg px-3 py-1.5 text-sm font-medium text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
+                >
+                  Use my location
+                </button>
+              </div>
+              <CitySearch onSelect={handleCitySelect} disabled={resolvingPlace} />
             </section>
-
-            <button
-              type="button"
-              onClick={requestLocation}
-              className="w-full rounded-xl border border-amber-200 bg-white/70 px-4 py-3 font-medium text-amber-900 transition hover:bg-white"
-            >
-              Refresh location
-            </button>
           </div>
         )}
       </main>
