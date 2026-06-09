@@ -9,6 +9,7 @@ export default {
           dawn: '#1a1035',
           blueHourMorning: '#1e2d6e',
           goldenHourMorning: '#c45c2e',
+          goldenHour: '#e8843a',
           solar: '#e8a020',
           goldenHourEvening: '#b84a20',
           blueHourEvening: '#1e2a6a',

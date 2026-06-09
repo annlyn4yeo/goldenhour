@@ -12,6 +12,7 @@ type SunArcProps = {
   sunData: SunData
   cityName?: string
   isLight?: boolean
+  isLive?: boolean
 }
 
 function inkTextClass(isLight: boolean, opacity?: string): string {
@@ -162,14 +163,20 @@ function buildArcSegments(sunData: SunData): ArcSegment[] {
   ]
 }
 
-export default function SunArc({ sunData, cityName, isLight = false }: SunArcProps) {
+export default function SunArc({
+  sunData,
+  cityName,
+  isLight = false,
+  isLive = true,
+}: SunArcProps) {
   const gradientId = useId().replace(/:/g, '')
   const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
+    if (!isLive) return
     const intervalId = window.setInterval(() => setNow(new Date()), 1_000)
     return () => window.clearInterval(intervalId)
-  }, [])
+  }, [isLive])
 
   const hasValidDaylight =
     isValidSunTime(sunData.sunrise) && isValidSunTime(sunData.sunset)
@@ -206,6 +213,8 @@ export default function SunArc({ sunData, cityName, isLight = false }: SunArcPro
 
   const segments = useMemo(() => buildArcSegments(sunData), [sunData])
 
+  const referenceTime = isLive ? now : sunData.solarNoon
+
   const sunProgress = useMemo(() => {
     if (!hasValidDaylight) return 0
     return altitudeToArcProgress(
@@ -213,17 +222,19 @@ export default function SunArc({ sunData, cityName, isLight = false }: SunArcPro
       sunData.sunrise,
       sunData.sunset,
       sunData.solarNoon,
-      now,
+      referenceTime,
     )
-  }, [hasValidDaylight, sunData, now])
+  }, [hasValidDaylight, sunData, referenceTime])
 
   const sunPoint = daylightProgressToPoint(sunProgress, CX, CY, RADIUS)
   const sunAboveHorizon = sunData.sunPosition.altitude > 0
 
-  const minutesAway = Math.max(
-    0,
-    Math.round((sunData.nextWindow.time.getTime() - now.getTime()) / 60_000),
-  )
+  const minutesAway = isLive
+    ? Math.max(
+        0,
+        Math.round((sunData.nextWindow.time.getTime() - now.getTime()) / 60_000),
+      )
+    : 0
 
   const phaseGlow = getPhaseGlow(sunData.currentSkyPhase)
 
@@ -368,9 +379,11 @@ export default function SunArc({ sunData, cityName, isLight = false }: SunArcPro
         </h1>
         <p
           className={`mt-3 text-bodyLg tabular-nums ${inkTextClass(isLight, '85')}`}
-          aria-live="polite"
+          aria-live={isLive ? 'polite' : undefined}
         >
-          in {formatCountdownFromMinutes(minutesAway)}
+          {isLive
+            ? `in ${formatCountdownFromMinutes(minutesAway)}`
+            : formatTime(sunData.nextWindow.time)}
         </p>
         {(cityName || sunData.date) && (
           <p className={`mt-4 text-caption ${inkTextClass(isLight, '55')}`}>

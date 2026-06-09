@@ -1,114 +1,190 @@
-import { useMemo, useState } from 'react'
+import type { SunDayData } from '../hooks/useSunData'
 import {
-  formatWindowRange,
-  getActiveWindow,
-  getForecastDays,
+  describeDaylightArc,
+  formatDuration,
+  formatForecastDateLabel,
+  formatForecastDayLabel,
+  formatTime,
   isValidSunTime,
-  toDateKey,
-  type ForecastDay,
 } from '../lib/goldenHour'
-import LightWindows from './LightWindows'
 
 type ForecastStripProps = {
-  lat: number
-  lng: number
-  now: Date
+  forecast: SunDayData[]
+  selectedDayIndex: number
+  onSelectDay: (index: number) => void
 }
 
-function GoldenHourSummary({ day }: { day: ForecastDay }) {
-  const { morning, evening } = day.schedule.goldenHour
+const MINI_ARC_W = 50
+const MINI_ARC_H = 20
+const MINI_CX = MINI_ARC_W / 2
+const MINI_CY = MINI_ARC_H - 2
+const MINI_RADIUS = 22
+const GOLDEN_HOUR_STROKE = '#e8843a'
+const TRACK_STROKE = '#1a1814'
 
-  if (!isValidSunTime(morning.start) || !isValidSunTime(evening.end)) {
-    return <p className="mt-3 text-sm text-stone-500">No golden hour</p>
+function daylightProgress(day: SunDayData, time: Date): number {
+  if (!isValidSunTime(day.sunrise) || !isValidSunTime(day.sunset)) return 0
+
+  const span = day.sunset.getTime() - day.sunrise.getTime()
+  if (span <= 0) return 0
+
+  return Math.min(1, Math.max(0, (time.getTime() - day.sunrise.getTime()) / span))
+}
+
+function MiniSunArc({ day }: { day: SunDayData }) {
+  const hasDaylight =
+    isValidSunTime(day.sunrise) && isValidSunTime(day.sunset)
+
+  if (!hasDaylight) {
+    return (
+      <svg
+        width={MINI_ARC_W}
+        height={MINI_ARC_H}
+        viewBox={`0 0 ${MINI_ARC_W} ${MINI_ARC_H}`}
+        aria-hidden="true"
+        className="mx-auto"
+      >
+        <line
+          x1={4}
+          y1={MINI_ARC_H - 2}
+          x2={MINI_ARC_W - 4}
+          y2={MINI_ARC_H - 2}
+          stroke={TRACK_STROKE}
+          strokeWidth={0.5}
+          opacity={0.25}
+        />
+      </svg>
+    )
   }
 
+  const morningEnd = daylightProgress(day, day.goldenHourMorningEnd)
+  const eveningStart = daylightProgress(day, day.goldenHourEveningStart)
+  const trackPath = describeDaylightArc(MINI_CX, MINI_CY, MINI_RADIUS, 0, 1)
+
   return (
-    <div className="mt-3 space-y-1 text-sm text-stone-600">
-      <p>
-        <span className="font-medium text-stone-700">AM</span>{' '}
-        {formatWindowRange(morning.start, morning.end)}
-      </p>
-      <p>
-        <span className="font-medium text-stone-700">PM</span>{' '}
-        {formatWindowRange(evening.start, evening.end)}
-      </p>
-    </div>
+    <svg
+      width={MINI_ARC_W}
+      height={MINI_ARC_H}
+      viewBox={`0 0 ${MINI_ARC_W} ${MINI_ARC_H}`}
+      aria-hidden="true"
+      className="mx-auto"
+    >
+      <path
+        d={trackPath}
+        fill="none"
+        stroke={TRACK_STROKE}
+        strokeWidth={0.5}
+        strokeLinecap="round"
+        opacity={0.25}
+      />
+      {morningEnd > 0 && (
+        <path
+          d={describeDaylightArc(MINI_CX, MINI_CY, MINI_RADIUS, 0, morningEnd)}
+          fill="none"
+          stroke={GOLDEN_HOUR_STROKE}
+          strokeWidth={1.5}
+          strokeLinecap="round"
+        />
+      )}
+      {eveningStart < 1 && (
+        <path
+          d={describeDaylightArc(MINI_CX, MINI_CY, MINI_RADIUS, eveningStart, 1)}
+          fill="none"
+          stroke={GOLDEN_HOUR_STROKE}
+          strokeWidth={1.5}
+          strokeLinecap="round"
+        />
+      )}
+    </svg>
   )
 }
 
-export default function ForecastStrip({ lat, lng, now }: ForecastStripProps) {
-  const forecast = useMemo(
-    () => getForecastDays(lat, lng, now),
-    [lat, lng, now],
-  )
-  const [selectedDateKey, setSelectedDateKey] = useState(() => toDateKey(now))
+function formatTodayFullDate(date: Date): string {
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  }).format(date)
+}
 
-  const selectedDay =
-    forecast.find((day) => day.dateKey === selectedDateKey) ?? forecast[0]
-
-  const isToday = selectedDay.dateKey === toDateKey(now)
-  const activeWindowId = isToday
-    ? getActiveWindow(selectedDay.schedule.windows, now)?.id ?? null
-    : null
+function DayCard({
+  day,
+  referenceDate,
+  isSelected,
+  onSelect,
+}: {
+  day: SunDayData
+  referenceDate: Date
+  isSelected: boolean
+  onSelect: () => void
+}) {
+  const hasMorning = isValidSunTime(day.goldenHourMorningStart)
+  const hasEvening = isValidSunTime(day.goldenHourEveningStart)
 
   return (
-    <section className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold text-stone-900">7-day forecast</h2>
-        <p className="mt-1 text-sm text-stone-500">
-          Golden hour times for the week ahead. Tap a day for full details.
-        </p>
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={isSelected}
+      className={`w-[88px] shrink-0 snap-start rounded-xl px-3 py-3 text-center transition md:w-auto ${
+        isSelected
+          ? 'border-[0.5px] border-sky-goldenHour bg-surface-card'
+          : 'border-[0.5px] border-transparent bg-surface-muted'
+      }`}
+    >
+      <p className="text-caption text-ink-tertiary">
+        {formatForecastDayLabel(day.date, referenceDate)}
+      </p>
+      <p className="mt-0.5 text-body text-ink-primary">
+        {formatForecastDateLabel(day.date)}
+      </p>
+
+      <div className="my-2">
+        <MiniSunArc day={day} />
       </div>
 
-      <div className="-mx-1 overflow-x-auto px-1 pb-1">
-        <div className="flex min-w-min snap-x snap-mandatory gap-3">
-          {forecast.map((day) => {
-            const isSelected = day.dateKey === selectedDay.dateKey
+      <p className="font-display text-body font-medium text-ink-primary tabular-nums">
+        {hasMorning ? formatTime(day.goldenHourMorningStart) : '—'}
+      </p>
+      <p className="font-display text-body font-medium text-ink-primary tabular-nums">
+        {hasEvening ? formatTime(day.goldenHourEveningStart) : '—'}
+      </p>
+      <p className="mt-1 text-caption text-ink-secondary">
+        {day.goldenHourTotalMinutes > 0
+          ? formatDuration(day.goldenHourTotalMinutes * 60_000)
+          : '—'}
+      </p>
+    </button>
+  )
+}
 
-            return (
-              <button
-                key={day.dateKey}
-                type="button"
-                onClick={() => setSelectedDateKey(day.dateKey)}
-                aria-pressed={isSelected}
-                className={`w-36 shrink-0 snap-start rounded-3xl border p-4 text-left transition ${
-                  isSelected
-                    ? 'border-amber-400 bg-amber-100/90 shadow-sm'
-                    : 'border-white/60 bg-white/70 hover:bg-white'
-                }`}
-              >
-                <p className="text-sm font-semibold text-stone-900">{day.dayLabel}</p>
-                <p className="text-xs text-stone-500">{day.dateLabel}</p>
-                <GoldenHourSummary day={day} />
-              </button>
-            )
-          })}
+export default function ForecastStrip({
+  forecast,
+  selectedDayIndex,
+  onSelectDay,
+}: ForecastStripProps) {
+  const referenceDate = forecast[0]?.date ?? new Date()
+  const todayFullDate = formatTodayFullDate(referenceDate)
+
+  return (
+    <section className="mb-section">
+      <header className="mb-6">
+        <h2 className="font-display text-heading text-ink-primary">the week ahead</h2>
+        <p className="mt-1 text-body text-ink-secondary">{todayFullDate}</p>
+      </header>
+
+      <div className="-mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:overflow-visible md:px-0">
+        <div className="flex snap-x snap-mandatory gap-2 md:grid md:grid-cols-7 md:gap-3 md:snap-none">
+          {forecast.map((day, index) => (
+            <DayCard
+              key={day.date.toISOString()}
+              day={day}
+              referenceDate={referenceDate}
+              isSelected={index === selectedDayIndex}
+              onSelect={() => onSelectDay(index)}
+            />
+          ))}
         </div>
-      </div>
-
-      <div className="rounded-3xl bg-white/80 p-5 shadow-sm backdrop-blur">
-        <div className="mb-4">
-          <p className="text-sm font-medium text-amber-700">
-            {selectedDay.dayLabel} · {selectedDay.dateLabel}
-          </p>
-        </div>
-
-        <LightWindows
-          goldenHour={[
-            selectedDay.schedule.goldenHour.morning,
-            selectedDay.schedule.goldenHour.evening,
-          ]}
-          blueHour={[
-            selectedDay.schedule.blueHour.morning,
-            selectedDay.schedule.blueHour.evening,
-          ]}
-          solarNoon={selectedDay.schedule.solarNoon}
-          daylightDurationMs={selectedDay.schedule.daylightDurationMs}
-          sunrise={selectedDay.schedule.sunrise}
-          sunset={selectedDay.schedule.sunset}
-          activeWindowId={activeWindowId}
-          showHeading={false}
-        />
       </div>
     </section>
   )

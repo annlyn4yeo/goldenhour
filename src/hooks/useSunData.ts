@@ -238,6 +238,31 @@ function getSunPosition(coords: Coords, now: Date) {
   }
 }
 
+export function getDisplaySunData(
+  sunData: SunData,
+  selectedDayIndex: number,
+  coords: Coords,
+): SunData {
+  if (selectedDayIndex === 0) return sunData
+
+  const day = sunData.forecast[selectedDayIndex] ?? sunData.forecast[0]
+  const referenceTime = isValidSunTime(day.solarNoon) ? day.solarNoon : day.date
+  const upcoming = getUpcomingWindows(day)
+  const firstWindow = upcoming[0] ?? { label: 'Sunrise', time: day.sunrise }
+
+  return {
+    ...day,
+    currentSkyPhase: getCurrentSkyPhase(day, coords, referenceTime),
+    nextWindow: {
+      label: firstWindow.label,
+      time: firstWindow.time,
+      minutesAway: 0,
+    },
+    sunPosition: getSunPosition(coords, referenceTime),
+    forecast: sunData.forecast,
+  }
+}
+
 export default function useSunData({
   coords,
   targetDate,
