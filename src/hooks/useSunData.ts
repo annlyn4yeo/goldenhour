@@ -238,6 +238,11 @@ function getSunPosition(coords: Coords, now: Date) {
   }
 }
 
+function formatWeekdayPossessiveLight(date: Date): string {
+  const weekday = new Intl.DateTimeFormat(undefined, { weekday: 'long' }).format(date)
+  return `${weekday}'s light`
+}
+
 export function getDisplaySunData(
   sunData: SunData,
   selectedDayIndex: number,
@@ -247,15 +252,13 @@ export function getDisplaySunData(
 
   const day = sunData.forecast[selectedDayIndex] ?? sunData.forecast[0]
   const referenceTime = isValidSunTime(day.solarNoon) ? day.solarNoon : day.date
-  const upcoming = getUpcomingWindows(day)
-  const firstWindow = upcoming[0] ?? { label: 'Sunrise', time: day.sunrise }
 
   return {
     ...day,
-    currentSkyPhase: getCurrentSkyPhase(day, coords, referenceTime),
+    currentSkyPhase: 'solar',
     nextWindow: {
-      label: firstWindow.label,
-      time: firstWindow.time,
+      label: formatWeekdayPossessiveLight(day.date),
+      time: day.solarNoon,
       minutesAway: 0,
     },
     sunPosition: getSunPosition(coords, referenceTime),

@@ -116,6 +116,16 @@ function formatTodayDate(date: Date): string {
   }).format(date)
 }
 
+function formatForecastGoldenHours(sunData: SunData): string {
+  const morning = isValidSunTime(sunData.goldenHourMorningStart)
+    ? formatTime(sunData.goldenHourMorningStart)
+    : '—'
+  const evening = isValidSunTime(sunData.goldenHourEveningStart)
+    ? formatTime(sunData.goldenHourEveningStart)
+    : '—'
+  return `Morning ${morning} · Evening ${evening}`
+}
+
 function getPhaseGlow(skyPhase: SunData['currentSkyPhase']): string {
   switch (skyPhase) {
     case 'goldenHourMorning':
@@ -230,7 +240,10 @@ export default function SunArc({
     ]
   }, [hasValidDaylight, sunData])
 
-  const segments = useMemo(() => buildArcSegments(sunData), [sunData])
+  const segments = useMemo(
+    () => (isLive ? buildArcSegments(sunData) : []),
+    [isLive, sunData],
+  )
 
   const referenceTime = isLive ? now : sunData.solarNoon
 
@@ -249,7 +262,9 @@ export default function SunArc({
     )
   }, [hasValidDaylight, sunData.sunrise, sunData.sunset, referenceTime])
 
-  const sunAboveHorizon = sunData.sunPosition.altitude > 0
+  const sunAboveHorizon = isLive
+    ? sunData.sunPosition.altitude > 0
+    : hasValidDaylight && isValidSunTime(sunData.solarNoon)
 
   const minutesAway = isLive
     ? Math.max(
@@ -444,7 +459,7 @@ export default function SunArc({
         >
           {isLive
             ? `in ${formatCountdownFromMinutes(minutesAway)}`
-            : formatTime(sunData.nextWindow.time)}
+            : formatForecastGoldenHours(sunData)}
         </p>
         {(locationLabel || sunData.date) && (
           <p className={`mt-5 text-body font-medium tracking-wide ${inkTextClass(isLight, true)}`}>
