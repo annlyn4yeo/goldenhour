@@ -63,7 +63,10 @@ export default function FilmSimCard({ currentSkyPhase, weather }: FilmSimCardPro
 
   return (
     <div>
-      <article className="rounded-2xl bg-surface-muted px-6 py-8 md:px-10 md:py-10">
+      <article
+        key={currentSkyPhase}
+        className="animate-filmsim-enter rounded-2xl bg-surface-muted px-6 py-8 md:px-10 md:py-10"
+      >
         <p className="text-caption text-ink-tertiary">
           recommended for {phaseLabel}
         </p>

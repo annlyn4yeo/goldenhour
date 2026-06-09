@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { skyTextClassesForTone, type SkyTextClasses } from '../hooks/useSkyTheme'
 import type { SunData } from '../hooks/useSunData'
 import {
@@ -109,6 +109,54 @@ function formatCountdownFromMinutes(totalMinutes: number): string {
   return formatDuration(totalMinutes * 60_000)
 }
 
+function FlipChar({ char }: { char: string }) {
+  const [display, setDisplay] = useState(char)
+  const [phase, setPhase] = useState<'idle' | 'out' | 'in'>('idle')
+  const isFirstRender = useRef(true)
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+
+    setPhase('out')
+    const outTimer = window.setTimeout(() => {
+      setDisplay(char)
+      setPhase('in')
+      window.setTimeout(() => setPhase('idle'), 75)
+    }, 75)
+
+    return () => window.clearTimeout(outTimer)
+  }, [char])
+
+  const animClass =
+    phase === 'out'
+      ? 'animate-countdown-flip-out'
+      : phase === 'in'
+        ? 'animate-countdown-flip-in'
+        : ''
+
+  return (
+    <span
+      className={`inline-block origin-center ${animClass}`}
+      style={{ display: char === ' ' ? 'inline' : 'inline-block' }}
+    >
+      {display === ' ' ? '\u00a0' : display}
+    </span>
+  )
+}
+
+function AnimatedCountdown({ text }: { text: string }) {
+  return (
+    <span className="inline">
+      {text.split('').map((char, index) => (
+        <FlipChar key={index} char={char} />
+      ))}
+    </span>
+  )
+}
+
 function formatTodayDate(date: Date): string {
   return new Intl.DateTimeFormat(undefined, {
     weekday: 'long',
@@ -187,6 +235,8 @@ export default function SunArc({
 }: SunArcProps) {
   const ink = resolveTextClasses(isLight, textClasses, isLive)
   const uid = useId().replace(/:/g, '')
+  const arcPathRef = useRef<SVGPathElement>(null)
+  const [arcLength, setArcLength] = useState<number | null>(null)
   const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
@@ -294,6 +344,14 @@ export default function SunArc({
 
   const trackPath = describeDaylightArc(CX, CY, RADIUS, 0, 1)
 
+  useLayoutEffect(() => {
+    if (arcPathRef.current) {
+      setArcLength(arcPathRef.current.getTotalLength())
+    }
+  }, [trackPath])
+
+  const countdownText = formatCountdownFromMinutes(minutesAway)
+
   return (
     <div
       className="w-full max-w-4xl"
@@ -353,6 +411,7 @@ export default function SunArc({
         />
 
         <path
+          ref={arcPathRef}
           d={trackPath}
           fill="none"
           stroke={`url(#arc-spectrum-${uid})`}
@@ -360,6 +419,12 @@ export default function SunArc({
           strokeLinecap="round"
           opacity={0.92}
           filter={`url(#arc-glow-${uid})`}
+          className={arcLength != null ? 'animate-arc-draw' : undefined}
+          style={
+            arcLength != null
+              ? { ['--arc-length' as string]: `${arcLength}px` }
+              : undefined
+          }
         />
 
         {segments.map((segment) => {
@@ -427,14 +492,14 @@ export default function SunArc({
           )
         })}
 
-        <g style={{ filter: phaseGlow }}>
+        <g className="animate-sun-dot-fade-in" style={{ filter: phaseGlow }}>
           <circle
             cx={sunDisplay.x}
             cy={sunDisplay.y}
             r={22}
             fill={`url(#sun-glow-${uid})`}
             opacity={sunDisplay.belowHorizon ? 0.15 : sunAboveHorizon ? 0.85 : 0.35}
-            className="transition-all duration-1000 ease-in-out"
+            className="motion-safe:transition-all motion-safe:duration-1000 motion-safe:ease-in-out"
           />
           <circle
             cx={sunDisplay.x}
@@ -445,7 +510,7 @@ export default function SunArc({
             strokeWidth={2}
             opacity={sunDisplay.belowHorizon ? 0.2 : sunAboveHorizon ? 1 : 0.5}
             filter={`url(#sun-bloom-${uid})`}
-            className="transition-all duration-1000 ease-in-out"
+            className="motion-safe:transition-all motion-safe:duration-1000 motion-safe:ease-in-out"
           />
         </g>
       </svg>
@@ -460,9 +525,13 @@ export default function SunArc({
           className={`mt-4 text-[length:clamp(18px,3vw,22px)] font-medium tabular-nums tracking-wide ${ink.textMuted}`}
           aria-live={isLive ? 'polite' : undefined}
         >
-          {isLive
-            ? `in ${formatCountdownFromMinutes(minutesAway)}`
-            : formatForecastGoldenHours(sunData)}
+          {isLive ? (
+            <>
+              in <AnimatedCountdown text={countdownText} />
+            </>
+          ) : (
+            formatForecastGoldenHours(sunData)
+          )}
         </p>
         {(locationLabel || sunData.date) && (
           <p className={`mt-5 text-body font-medium tracking-wide ${ink.textMuted}`}>

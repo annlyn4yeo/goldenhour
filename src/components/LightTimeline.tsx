@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { SunDayData } from '../hooks/useSunData'
 import { formatDuration, formatTime, isValidSunTime } from '../lib/goldenHour'
 
@@ -102,23 +102,19 @@ function formatRelativeLabel(time: Date, now: Date): string {
 
 type TimelineRowProps = {
   event: TimelineEvent
-  isActive: boolean
   isLive: boolean
   now: Date
   isLast: boolean
+  rowRef: (element: HTMLDivElement | null) => void
 }
 
-function TimelineRow({ event, isActive, isLive, now, isLast }: TimelineRowProps) {
+function TimelineRow({ event, isLive, now, isLast, rowRef }: TimelineRowProps) {
   const hasValidTime = isValidSunTime(event.time)
   const durationLabel =
     isLive && hasValidTime ? formatRelativeLabel(event.time, now) : isLive ? '—' : '—'
 
   return (
-    <div
-      className={`-mx-3 rounded-lg px-3 py-2.5 transition-colors ${
-        isActive ? 'bg-surface-muted' : ''
-      }`}
-    >
+    <div ref={rowRef} className="relative z-10 -mx-3 rounded-lg px-3 py-2.5">
       <div className="relative flex items-baseline gap-3 pl-5">
         <span
           className="absolute top-[0.45rem] left-0 z-10 h-2.5 w-2.5 -translate-x-1/2 rounded-full ring-2 ring-surface-card"
@@ -147,6 +143,8 @@ function TimelineRow({ event, isActive, isLive, now, isLast }: TimelineRowProps)
 
 export default function LightTimeline({ sunData, isLive = false }: LightTimelineProps) {
   const [now, setNow] = useState(() => new Date())
+  const rowRefs = useRef<(HTMLDivElement | null)[]>([])
+  const [highlight, setHighlight] = useState<{ top: number; height: number } | null>(null)
 
   useEffect(() => {
     if (!isLive) return
@@ -164,6 +162,21 @@ export default function LightTimeline({ sunData, isLive = false }: LightTimeline
     [events, isLive, now],
   )
 
+  useLayoutEffect(() => {
+    if (activeIndex < 0) {
+      setHighlight(null)
+      return
+    }
+
+    const row = rowRefs.current[activeIndex]
+    if (!row) {
+      setHighlight(null)
+      return
+    }
+
+    setHighlight({ top: row.offsetTop, height: row.offsetHeight })
+  }, [activeIndex, events])
+
   const title = isLive ? "today's light" : 'light schedule'
 
   return (
@@ -171,14 +184,23 @@ export default function LightTimeline({ sunData, isLive = false }: LightTimeline
       <h2 className="font-display text-heading text-ink-primary">{title}</h2>
 
       <div className="relative mt-5">
+        {highlight && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute right-0 left-0 -mx-3 rounded-lg bg-surface-muted motion-safe:transition-[top,height] motion-safe:duration-300 motion-safe:ease-out"
+            style={{ top: highlight.top, height: highlight.height }}
+          />
+        )}
         {events.map((event, index) => (
           <TimelineRow
             key={event.id}
             event={event}
-            isActive={index === activeIndex}
             isLive={isLive}
             now={now}
             isLast={index === events.length - 1}
+            rowRef={(element) => {
+              rowRefs.current[index] = element
+            }}
           />
         ))}
       </div>

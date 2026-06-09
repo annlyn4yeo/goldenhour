@@ -112,11 +112,13 @@ function DayCard({
   referenceDate,
   isSelected,
   onSelect,
+  index,
 }: {
   day: SunDayData
   referenceDate: Date
   isSelected: boolean
   onSelect: () => void
+  index: number
 }) {
   const hasMorning = isValidSunTime(day.goldenHourMorningStart)
   const hasEvening = isValidSunTime(day.goldenHourEveningStart)
@@ -126,11 +128,12 @@ function DayCard({
       type="button"
       onClick={onSelect}
       aria-pressed={isSelected}
-      className={`w-[88px] shrink-0 snap-start rounded-xl px-3 py-3 text-center transition md:w-auto ${
+      className={`animate-forecast-card-enter w-[88px] shrink-0 snap-start rounded-xl px-3 py-3 text-center transition md:w-auto ${
         isSelected
           ? 'border-[0.5px] border-sky-goldenHour bg-surface-card'
           : 'border-[0.5px] border-transparent bg-surface-muted'
       }`}
+      style={{ animationDelay: `${index * 60}ms` }}
     >
       <p className="text-caption text-ink-tertiary">
         {formatForecastDayLabel(day.date, referenceDate)}
@@ -182,6 +185,7 @@ export default function ForecastStrip({
               referenceDate={referenceDate}
               isSelected={index === selectedDayIndex}
               onSelect={() => onSelectDay(index)}
+              index={index}
             />
           ))}
         </div>

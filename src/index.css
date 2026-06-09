@@ -91,3 +91,91 @@ body {
 .app-shell[data-sky-phase='dusk'] {
   --sky-bg: var(--sky-dusk);
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes arc-draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes sun-dot-fade-in {
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes filmsim-enter {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes forecast-card-enter {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes countdown-flip-out {
+    to {
+      transform: scaleY(0);
+      opacity: 0;
+    }
+  }
+
+  @keyframes countdown-flip-in {
+    from {
+      transform: scaleY(0);
+      opacity: 0;
+    }
+    to {
+      transform: scaleY(1);
+      opacity: 1;
+    }
+  }
+
+  .animate-arc-draw {
+    stroke-dasharray: var(--arc-length);
+    stroke-dashoffset: var(--arc-length);
+    animation: arc-draw 1.2s ease-out forwards;
+  }
+
+  .animate-sun-dot-fade-in {
+    opacity: 0;
+    animation: sun-dot-fade-in 0.4s ease-out 1.5s forwards;
+  }
+
+  .animate-filmsim-enter {
+    animation: filmsim-enter 0.4s ease-out both;
+  }
+
+  .animate-forecast-card-enter {
+    opacity: 0;
+    animation: forecast-card-enter 0.4s ease-out both;
+  }
+
+  .animate-countdown-flip-out {
+    animation: countdown-flip-out 75ms ease-in forwards;
+  }
+
+  .animate-countdown-flip-in {
+    animation: countdown-flip-in 75ms ease-out forwards;
+  }
+}
