@@ -180,8 +180,8 @@ export default function LightTimeline({ sunData, isLive = false }: LightTimeline
   const title = isLive ? "today's light" : 'light schedule'
 
   return (
-    <aside className="w-full lg:max-w-[360px] lg:min-w-[300px]">
-      <h2 className="font-display text-heading text-ink-primary">{title}</h2>
+    <aside className="w-full">
+      <h2 className="font-display text-[20px] text-ink-primary lg:text-[24px]">{title}</h2>
 
       <div className="relative mt-5">
         {highlight && (

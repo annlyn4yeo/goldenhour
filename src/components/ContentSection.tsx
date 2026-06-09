@@ -6,6 +6,8 @@ import {
 import FilmSimCard from './FilmSimCard'
 import ForecastStrip from './ForecastStrip'
 import LightTimeline from './LightTimeline'
+import ReminderWidget from './ReminderWidget'
+import ShareCard from './ShareCard'
 import ShootQualityCard from './ShootQualityCard'
 import type { WeatherCategory } from '../lib/weather'
 
@@ -40,22 +42,39 @@ export default function ContentSection({
     : null
 
   return (
-    <section className="bg-surface-base px-4 py-section md:px-gutter">
-      <div className="mx-auto max-w-[1200px]">
-        <ForecastStrip
-          forecast={forecast}
-          selectedDayIndex={selectedDayIndex}
-          onSelectDay={onSelectDay}
-        />
-        <ShootQualityCard
-          weather={weather ?? null}
-          isGoldenHour={isGoldenHour}
-          loading={weatherLoading}
-          error={weatherError}
-        />
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)] lg:items-start">
+    <section className="border-surface-border bg-surface-base px-4 pt-16 pb-20 md:px-gutter lg:border-t-[0.5px]">
+      <div className="mx-auto grid max-w-[1200px] grid-cols-12 gap-6 min-[1400px]:max-w-[1320px]">
+        <div className="col-span-12">
+          <ForecastStrip
+            forecast={forecast}
+            selectedDayIndex={selectedDayIndex}
+            onSelectDay={onSelectDay}
+          />
+        </div>
+
+        <div className="col-span-12 md:col-span-12 lg:col-span-7">
           <FilmSimCard currentSkyPhase={currentSkyPhase} weather={weatherCategory} />
+        </div>
+
+        <div className="col-span-12 md:col-span-6 lg:col-span-5">
           <LightTimeline sunData={sunData} isLive={isLive} />
+        </div>
+
+        <div className="col-span-12 md:col-span-12 lg:col-span-7">
+          <ReminderWidget />
+        </div>
+
+        <div className="col-span-12 md:col-span-6 lg:col-span-5 lg:col-start-8">
+          <ShootQualityCard
+            weather={weather ?? null}
+            isGoldenHour={isGoldenHour}
+            loading={weatherLoading}
+            error={weatherError}
+          />
+        </div>
+
+        <div className="col-span-12">
+          <ShareCard />
         </div>
       </div>
     </section>

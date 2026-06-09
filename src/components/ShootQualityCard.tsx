@@ -31,7 +31,7 @@ export default function ShootQualityCard({
 }: ShootQualityCardProps) {
   if (loading) {
     return (
-      <div className="mb-8 rounded-2xl bg-surface-muted px-6 py-8 md:px-10">
+      <div className="rounded-2xl bg-surface-muted px-6 py-8 md:px-10">
         <p className="text-caption text-ink-tertiary">Loading shoot conditions…</p>
       </div>
     )
@@ -39,7 +39,7 @@ export default function ShootQualityCard({
 
   if (error) {
     return (
-      <div className="mb-8 rounded-2xl border border-surface-border bg-surface-muted px-6 py-8 md:px-10">
+      <div className="rounded-2xl border border-surface-border bg-surface-muted px-6 py-8 md:px-10">
         <p className="text-caption font-medium text-ink-primary">Shoot score unavailable</p>
         <p className="mt-1 text-caption text-ink-secondary">{error}</p>
       </div>
@@ -52,7 +52,7 @@ export default function ShootQualityCard({
   const lensTip = getLensRecommendation(weather.condition)
 
   return (
-    <article className="mb-8 rounded-2xl bg-surface-muted px-6 py-8 md:px-10">
+    <article className="rounded-2xl bg-surface-muted px-6 py-8 md:px-10">
       <div className="grid gap-6 md:grid-cols-[auto_1fr] md:items-start">
         <div className="flex flex-col">
           <span className="font-display text-display leading-none text-ink-primary">

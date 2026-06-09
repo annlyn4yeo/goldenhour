@@ -170,14 +170,16 @@ export default function ForecastStrip({
   const todayFullDate = formatTodayFullDate(referenceDate)
 
   return (
-    <section className="mb-section">
+    <section>
       <header className="mb-6">
-        <h2 className="font-display text-heading text-ink-primary">the week ahead</h2>
+        <h2 className="font-display text-[20px] text-ink-primary lg:text-[24px]">
+          the week ahead
+        </h2>
         <p className="mt-1 text-body text-ink-secondary">{todayFullDate}</p>
       </header>
 
-      <div className="-mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:overflow-visible md:px-0">
-        <div className="flex snap-x snap-mandatory gap-2 md:grid md:grid-cols-7 md:gap-3 md:snap-none">
+      <div className="-mx-4 overflow-x-auto px-4 pb-1 lg:mx-0 lg:overflow-visible lg:px-0">
+        <div className="flex snap-x snap-mandatory gap-2 lg:grid lg:grid-cols-7 lg:gap-3 lg:snap-none">
           {forecast.map((day, index) => (
             <DayCard
               key={day.date.toISOString()}

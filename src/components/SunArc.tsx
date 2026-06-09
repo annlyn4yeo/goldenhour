@@ -36,10 +36,10 @@ function displayLocationName(cityName?: string): string | null {
 }
 
 const CX = 400
-const CY = 228
+const CY = 210
 const RADIUS = 180
-const HORIZON_Y = 256
-const VIEWBOX = '0 -48 800 360'
+const HORIZON_Y = 268
+const VIEWBOX = '0 0 800 300'
 const TRACK_WIDTH = 4
 const SEGMENT_WIDTH = 7
 
@@ -517,12 +517,12 @@ export default function SunArc({
 
       <div className="mt-1 text-center">
         <h1
-          className={`font-display text-[length:clamp(56px,9vw,72px)] font-normal leading-[0.95] tracking-tight ${ink.text}`}
+          className={`font-display text-[36px] font-normal leading-[0.95] tracking-tight lg:text-[52px] ${ink.text}`}
         >
           {sunData.nextWindow.label}
         </h1>
         <p
-          className={`mt-4 text-[length:clamp(18px,3vw,22px)] font-medium tabular-nums tracking-wide ${ink.textMuted}`}
+          className={`mt-4 text-body font-medium tabular-nums tracking-wide lg:text-bodyLg ${ink.textMuted}`}
           aria-live={isLive ? 'polite' : undefined}
         >
           {isLive ? (

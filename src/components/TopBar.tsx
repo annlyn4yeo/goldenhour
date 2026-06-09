@@ -39,7 +39,9 @@ export default function TopBar({
         isLight ? 'bg-black/8' : 'bg-white/15'
       }`}
     >
-      <span className={`font-display text-title italic ${ink.text}`}>auric.</span>
+      <span className={`font-display text-title italic lg:tracking-[0.04em] ${ink.text}`}>
+        auric.
+      </span>
 
       <div className={`flex items-center gap-3 text-body ${ink.text}`}>
         <button
