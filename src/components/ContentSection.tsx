@@ -5,6 +5,7 @@ import {
 } from '../hooks/useWeather'
 import FilmSimCard from './FilmSimCard'
 import ForecastStrip from './ForecastStrip'
+import LightTimeline from './LightTimeline'
 import ShootQualityCard from './ShootQualityCard'
 import type { WeatherCategory } from '../lib/weather'
 
@@ -13,6 +14,8 @@ type ContentSectionProps = {
   selectedDayIndex: number
   onSelectDay: (index: number) => void
   currentSkyPhase: SkyPhase
+  sunData: SunDayData
+  isLive?: boolean
   weather?: WeatherData | null
   weatherLoading?: boolean
   weatherError?: string | null
@@ -23,6 +26,8 @@ export default function ContentSection({
   selectedDayIndex,
   onSelectDay,
   currentSkyPhase,
+  sunData,
+  isLive = false,
   weather,
   weatherLoading,
   weatherError,
@@ -48,7 +53,10 @@ export default function ContentSection({
           loading={weatherLoading}
           error={weatherError}
         />
-        <FilmSimCard currentSkyPhase={currentSkyPhase} weather={weatherCategory} />
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)] lg:items-start">
+          <FilmSimCard currentSkyPhase={currentSkyPhase} weather={weatherCategory} />
+          <LightTimeline sunData={sunData} isLive={isLive} />
+        </div>
       </div>
     </section>
   )

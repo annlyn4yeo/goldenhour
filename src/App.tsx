@@ -42,6 +42,8 @@ export default function App() {
         selectedDayIndex={selectedDayIndex}
         onSelectDay={setSelectedDayIndex}
         currentSkyPhase={displaySunData.currentSkyPhase}
+        sunData={displaySunData}
+        isLive={isLiveDay}
         weather={weather}
         weatherLoading={weatherLoading}
         weatherError={weatherError}

@@ -1,0 +1,187 @@
+import { useEffect, useMemo, useState } from 'react'
+import type { SunDayData } from '../hooks/useSunData'
+import { formatDuration, formatTime, isValidSunTime } from '../lib/goldenHour'
+
+type LightTimelineProps = {
+  sunData: SunDayData
+  isLive?: boolean
+}
+
+type EventKind = 'golden' | 'blue' | 'dark' | 'solar'
+
+type TimelineEvent = {
+  id: string
+  label: string
+  time: Date
+  kind: EventKind
+}
+
+const DOT_COLORS: Record<EventKind, string> = {
+  golden: '#e8843a',
+  blue: '#1e2d6e',
+  dark: '#1a1814',
+  solar: '#e8a020',
+}
+
+function buildTimelineEvents(sunData: SunDayData): TimelineEvent[] {
+  return [
+    { id: 'astronomical-dawn', label: 'Astronomical dawn', time: sunData.astronomicalDawn, kind: 'dark' },
+    { id: 'nautical-dawn', label: 'Nautical dawn', time: sunData.nauticalDawn, kind: 'dark' },
+    {
+      id: 'civil-dawn',
+      label: 'Civil dawn / Blue hour start',
+      time: sunData.civilDawn,
+      kind: 'blue',
+    },
+    {
+      id: 'sunrise',
+      label: 'Sunrise / Golden hour start',
+      time: sunData.sunrise,
+      kind: 'golden',
+    },
+    {
+      id: 'golden-morning-end',
+      label: 'Golden hour end',
+      time: sunData.goldenHourMorningEnd,
+      kind: 'golden',
+    },
+    { id: 'solar-noon', label: 'Solar noon', time: sunData.solarNoon, kind: 'solar' },
+    {
+      id: 'golden-evening-start',
+      label: 'Golden hour start',
+      time: sunData.goldenHourEveningStart,
+      kind: 'golden',
+    },
+    {
+      id: 'sunset',
+      label: 'Sunset / Golden hour end',
+      time: sunData.sunset,
+      kind: 'golden',
+    },
+    {
+      id: 'civil-dusk',
+      label: 'Civil dusk / Blue hour end',
+      time: sunData.civilDusk,
+      kind: 'blue',
+    },
+    { id: 'nautical-dusk', label: 'Nautical dusk', time: sunData.nauticalDusk, kind: 'dark' },
+    {
+      id: 'astronomical-dusk',
+      label: 'Astronomical dusk',
+      time: sunData.astronomicalDusk,
+      kind: 'dark',
+    },
+  ]
+}
+
+function getActiveEventIndex(events: TimelineEvent[], now: Date): number {
+  let active = -1
+
+  for (let index = 0; index < events.length; index++) {
+    const { time } = events[index]
+    if (!isValidSunTime(time)) continue
+    if (time.getTime() <= now.getTime()) {
+      active = index
+    } else {
+      break
+    }
+  }
+
+  return active
+}
+
+function formatRelativeLabel(time: Date, now: Date): string {
+  const deltaMs = time.getTime() - now.getTime()
+  const minutes = Math.round(Math.abs(deltaMs) / 60_000)
+
+  if (minutes === 0) return 'now'
+
+  const duration = formatDuration(minutes * 60_000)
+  return deltaMs > 0 ? `in ${duration}` : `${duration} ago`
+}
+
+type TimelineRowProps = {
+  event: TimelineEvent
+  isActive: boolean
+  isLive: boolean
+  now: Date
+  isLast: boolean
+}
+
+function TimelineRow({ event, isActive, isLive, now, isLast }: TimelineRowProps) {
+  const hasValidTime = isValidSunTime(event.time)
+  const durationLabel =
+    isLive && hasValidTime ? formatRelativeLabel(event.time, now) : isLive ? '—' : '—'
+
+  return (
+    <div
+      className={`-mx-3 rounded-lg px-3 py-2.5 transition-colors ${
+        isActive ? 'bg-surface-muted' : ''
+      }`}
+    >
+      <div className="relative flex items-baseline gap-3 pl-5">
+        <span
+          className="absolute top-[0.45rem] left-0 z-10 h-2.5 w-2.5 -translate-x-1/2 rounded-full ring-2 ring-surface-card"
+          style={{ backgroundColor: DOT_COLORS[event.kind] }}
+          aria-hidden="true"
+        />
+        {!isLast && (
+          <span
+            className="absolute top-[0.85rem] bottom-[-0.65rem] left-0 w-px -translate-x-1/2 bg-surface-border"
+            aria-hidden="true"
+          />
+        )}
+
+        <span className="min-w-0 flex-1 text-body text-ink-primary">{event.label}</span>
+        <span className="shrink-0 font-display text-body text-ink-primary tabular-nums">
+          {hasValidTime ? formatTime(event.time) : '—'}
+        </span>
+      </div>
+
+      {(isLive || durationLabel !== '—') && (
+        <p className="mt-0.5 pl-5 text-caption text-ink-tertiary">{durationLabel}</p>
+      )}
+    </div>
+  )
+}
+
+export default function LightTimeline({ sunData, isLive = false }: LightTimelineProps) {
+  const [now, setNow] = useState(() => new Date())
+
+  useEffect(() => {
+    if (!isLive) return
+
+    const intervalId = window.setInterval(() => {
+      setNow(new Date())
+    }, 60_000)
+
+    return () => window.clearInterval(intervalId)
+  }, [isLive])
+
+  const events = useMemo(() => buildTimelineEvents(sunData), [sunData])
+  const activeIndex = useMemo(
+    () => (isLive ? getActiveEventIndex(events, now) : -1),
+    [events, isLive, now],
+  )
+
+  const title = isLive ? "today's light" : 'light schedule'
+
+  return (
+    <aside className="w-full lg:max-w-[360px] lg:min-w-[300px]">
+      <h2 className="font-display text-heading text-ink-primary">{title}</h2>
+
+      <div className="relative mt-5">
+        {events.map((event, index) => (
+          <TimelineRow
+            key={event.id}
+            event={event}
+            isActive={index === activeIndex}
+            isLive={isLive}
+            now={now}
+            isLast={index === events.length - 1}
+          />
+        ))}
+      </div>
+    </aside>
+  )
+}
