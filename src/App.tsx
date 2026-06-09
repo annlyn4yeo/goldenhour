@@ -59,7 +59,7 @@ export default function App() {
     [sunData, selectedDayIndex, resolvedCoords],
   )
 
-  const { isLight } = useSkyTheme(displaySunData.currentSkyPhase)
+  const { isLight, textClasses } = useSkyTheme(displaySunData.currentSkyPhase)
   const isLiveDay = selectedDayIndex === 0
 
   return (
@@ -68,11 +68,14 @@ export default function App() {
         <TopBar
           locationName={hydrated ? displayLocationName : 'Loading…'}
           onLocationClick={() => setDrawerOpen((open) => !open)}
+          isLight={isLight}
+          textClasses={textClasses}
         />
         <HeroSection
           sunData={displaySunData}
           cityName={displayLocationName}
           isLight={isLight}
+          textClasses={textClasses}
           isLive={isLiveDay}
         />
         <ContentSection

@@ -26,6 +26,8 @@ export default {
           secondary: '#6b6760',
           tertiary: '#a8a49f',
           inverse: '#faf9f6',
+          onWarm: '#1a1208',
+          onWarmMuted: '#3d2f1f',
         },
       },
       fontFamily: {

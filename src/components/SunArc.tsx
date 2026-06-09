@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useState } from 'react'
+import { skyTextClassesForTone, type SkyTextClasses } from '../hooks/useSkyTheme'
 import type { SunData } from '../hooks/useSunData'
 import {
   daylightProgressToPoint,
@@ -12,17 +13,15 @@ type SunArcProps = {
   sunData: SunData
   cityName?: string
   isLight?: boolean
+  textClasses?: SkyTextClasses
   isLive?: boolean
 }
 
-function inkTextClass(isLight: boolean, muted = false): string {
-  const base = isLight ? 'text-ink-primary' : 'text-ink-inverse'
-  return muted ? `${base} opacity-80` : base
-}
-
-function inkFillClass(isLight: boolean, muted = false): string {
-  const base = isLight ? 'fill-ink-primary' : 'fill-ink-inverse'
-  return muted ? `${base} opacity-80` : base
+function resolveTextClasses(
+  isLight: boolean,
+  textClasses?: SkyTextClasses,
+): SkyTextClasses {
+  return textClasses ?? skyTextClassesForTone(isLight ? 'onWarm' : 'inverse')
 }
 
 function looksLikeCoordinates(name: string): boolean {
@@ -181,8 +180,10 @@ export default function SunArc({
   sunData,
   cityName,
   isLight = false,
+  textClasses,
   isLive = true,
 }: SunArcProps) {
+  const ink = resolveTextClasses(isLight, textClasses)
   const uid = useId().replace(/:/g, '')
   const [now, setNow] = useState(() => new Date())
 
@@ -279,10 +280,10 @@ export default function SunArc({
   if (!hasValidDaylight) {
     return (
       <div className="w-full max-w-4xl text-center">
-        <p className={`font-display text-display ${inkTextClass(isLight, true)}`}>
+        <p className={`font-display text-display ${ink.textMuted}`}>
           Sun path unavailable
         </p>
-        <p className={`mt-2 text-body ${inkTextClass(isLight, true)}`}>
+        <p className={`mt-2 text-body ${ink.textMuted}`}>
           Polar day or night at this location today.
         </p>
       </div>
@@ -409,7 +410,7 @@ export default function SunArc({
                   x={x}
                   y={HORIZON_Y + labelYOffset(marker.progress)}
                   textAnchor="middle"
-                  className={inkFillClass(isLight, !isNoon)}
+                  className={isNoon ? ink.fill : ink.fillMuted}
                   style={{
                     fontFamily: 'Inter, sans-serif',
                     fontSize: isNoon ? 13 : 12,
@@ -449,12 +450,12 @@ export default function SunArc({
 
       <div className="mt-1 text-center">
         <h1
-          className={`font-display text-[length:clamp(56px,9vw,72px)] font-normal leading-[0.95] tracking-tight ${inkTextClass(isLight)}`}
+          className={`font-display text-[length:clamp(56px,9vw,72px)] font-normal leading-[0.95] tracking-tight ${ink.text}`}
         >
           {sunData.nextWindow.label}
         </h1>
         <p
-          className={`mt-4 text-[length:clamp(18px,3vw,22px)] font-medium tabular-nums tracking-wide ${inkTextClass(isLight, true)}`}
+          className={`mt-4 text-[length:clamp(18px,3vw,22px)] font-medium tabular-nums tracking-wide ${ink.textMuted}`}
           aria-live={isLive ? 'polite' : undefined}
         >
           {isLive
@@ -462,7 +463,7 @@ export default function SunArc({
             : formatForecastGoldenHours(sunData)}
         </p>
         {(locationLabel || sunData.date) && (
-          <p className={`mt-5 text-body font-medium tracking-wide ${inkTextClass(isLight, true)}`}>
+          <p className={`mt-5 text-body font-medium tracking-wide ${ink.textMuted}`}>
             {[locationLabel, formatTodayDate(sunData.date)].filter(Boolean).join(' · ')}
           </p>
         )}

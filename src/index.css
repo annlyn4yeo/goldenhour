@@ -26,6 +26,8 @@
   --ink-secondary: #6b6760;
   --ink-tertiary: #a8a49f;
   --ink-inverse: #faf9f6;
+  --ink-on-warm: #1a1208;
+  --ink-on-warm-muted: #3d2f1f;
 
   /* Font families */
   --font-display: 'DM Serif Display', serif;

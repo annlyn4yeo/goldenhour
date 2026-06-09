@@ -12,29 +12,62 @@ export const SKY_BG_COLORS: Record<SkyPhase, string> = {
   dusk: '#0f0d2a',
 }
 
-export type SkyTextColor = 'primary' | 'inverse'
+export type SkyTextTone = 'onWarm' | 'inverse'
+
+export type SkyTextClasses = {
+  text: string
+  textMuted: string
+  textHover: string
+  fill: string
+  fillMuted: string
+  topBarHover: string
+}
+
+const SKY_TEXT_ON_WARM: SkyTextClasses = {
+  text: 'text-ink-onWarm',
+  textMuted: 'text-ink-onWarmMuted',
+  textHover: 'hover:text-ink-onWarm',
+  fill: 'fill-ink-onWarm',
+  fillMuted: 'fill-ink-onWarmMuted',
+  topBarHover: 'hover:bg-black/10',
+}
+
+const SKY_TEXT_INVERSE: SkyTextClasses = {
+  text: 'text-ink-inverse',
+  textMuted: 'text-ink-inverse opacity-80',
+  textHover: 'hover:text-ink-inverse',
+  fill: 'fill-ink-inverse',
+  fillMuted: 'fill-ink-inverse opacity-80',
+  topBarHover: 'hover:bg-white/10',
+}
+
+export function skyTextClassesForTone(tone: SkyTextTone): SkyTextClasses {
+  return tone === 'onWarm' ? SKY_TEXT_ON_WARM : SKY_TEXT_INVERSE
+}
+
+function textToneForPhase(phase: SkyPhase): SkyTextTone {
+  return phase === 'solar' ||
+    phase === 'goldenHourMorning' ||
+    phase === 'goldenHourEvening'
+    ? 'onWarm'
+    : 'inverse'
+}
 
 export type SkyTheme = {
   bgColor: string
-  textColor: SkyTextColor
+  textTone: SkyTextTone
+  textClasses: SkyTextClasses
   isLight: boolean
-}
-
-function isLightSkyPhase(phase: SkyPhase): boolean {
-  return (
-    phase === 'solar' ||
-    phase === 'goldenHourMorning' ||
-    phase === 'goldenHourEvening'
-  )
 }
 
 export default function useSkyTheme(currentSkyPhase: SkyPhase): SkyTheme {
   return useMemo(() => {
-    const isLight = isLightSkyPhase(currentSkyPhase)
+    const textTone = textToneForPhase(currentSkyPhase)
     return {
       bgColor: SKY_BG_COLORS[currentSkyPhase],
-      textColor: isLight ? 'primary' : 'inverse',
-      isLight,
+      textTone,
+      textClasses: skyTextClassesForTone(textTone),
+      isLight: textTone === 'onWarm',
     }
   }, [currentSkyPhase])
 }

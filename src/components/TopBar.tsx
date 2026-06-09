@@ -1,6 +1,10 @@
+import { skyTextClassesForTone, type SkyTextClasses } from '../hooks/useSkyTheme'
+
 type TopBarProps = {
   locationName: string
   onLocationClick?: () => void
+  isLight?: boolean
+  textClasses?: SkyTextClasses
 }
 
 function SettingsIcon() {
@@ -21,16 +25,27 @@ function SettingsIcon() {
   )
 }
 
-export default function TopBar({ locationName, onLocationClick }: TopBarProps) {
-  return (
-    <header className="fixed top-0 z-50 flex h-14 w-full items-center justify-between bg-white/15 px-4 backdrop-blur-md md:px-gutter">
-      <span className="font-display text-title italic text-ink-inverse">auric.</span>
+export default function TopBar({
+  locationName,
+  onLocationClick,
+  isLight = false,
+  textClasses,
+}: TopBarProps) {
+  const ink = textClasses ?? skyTextClassesForTone(isLight ? 'onWarm' : 'inverse')
 
-      <div className="flex items-center gap-3 text-body text-ink-inverse">
+  return (
+    <header
+      className={`fixed top-0 z-50 flex h-14 w-full items-center justify-between px-4 backdrop-blur-md md:px-gutter ${
+        isLight ? 'bg-black/8' : 'bg-white/15'
+      }`}
+    >
+      <span className={`font-display text-title italic ${ink.text}`}>auric.</span>
+
+      <div className={`flex items-center gap-3 text-body ${ink.text}`}>
         <button
           type="button"
           onClick={onLocationClick}
-          className="rounded-md px-1 transition hover:bg-white/10"
+          className={`rounded-md px-1 transition ${ink.topBarHover}`}
           aria-expanded={onLocationClick ? undefined : false}
         >
           {locationName}
@@ -38,7 +53,7 @@ export default function TopBar({ locationName, onLocationClick }: TopBarProps) {
         <button
           type="button"
           aria-label="Settings"
-          className="rounded-full p-1 text-ink-inverse/80 transition hover:bg-white/10 hover:text-ink-inverse"
+          className={`rounded-full p-1 transition ${ink.textMuted} ${ink.textHover} ${ink.topBarHover}`}
         >
           <SettingsIcon />
         </button>
