@@ -1,5 +1,6 @@
 type TopBarProps = {
   locationName: string
+  onLocationClick?: () => void
 }
 
 function SettingsIcon() {
@@ -20,13 +21,20 @@ function SettingsIcon() {
   )
 }
 
-export default function TopBar({ locationName }: TopBarProps) {
+export default function TopBar({ locationName, onLocationClick }: TopBarProps) {
   return (
     <header className="fixed top-0 z-50 flex h-14 w-full items-center justify-between bg-white/15 px-4 backdrop-blur-md md:px-gutter">
       <span className="font-display text-title italic text-ink-inverse">auric.</span>
 
       <div className="flex items-center gap-3 text-body text-ink-inverse">
-        <span>{locationName}</span>
+        <button
+          type="button"
+          onClick={onLocationClick}
+          className="rounded-md px-1 transition hover:bg-white/10"
+          aria-expanded={onLocationClick ? undefined : false}
+        >
+          {locationName}
+        </button>
         <button
           type="button"
           aria-label="Settings"

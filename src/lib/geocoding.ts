@@ -85,3 +85,40 @@ export async function searchCities(query: string): Promise<Place[]> {
 export function formatCoordinates(lat: number, lng: number): string {
   return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
 }
+
+type OpenMeteoSearchResponse = {
+  results?: Array<{
+    name: string
+    latitude: number
+    longitude: number
+    admin1?: string
+    country?: string
+  }>
+}
+
+export async function searchOpenMeteo(query: string): Promise<Place | null> {
+  const trimmed = query.trim()
+  if (trimmed.length < 2) return null
+
+  const url = new URL('https://geocoding-api.open-meteo.com/v1/search')
+  url.searchParams.set('name', trimmed)
+  url.searchParams.set('count', '1')
+  url.searchParams.set('language', 'en')
+  url.searchParams.set('format', 'json')
+
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error('City lookup is unavailable right now.')
+  }
+
+  const data = (await response.json()) as OpenMeteoSearchResponse
+  const result = data.results?.[0]
+  if (!result) return null
+
+  const nameParts = [result.name, result.admin1, result.country].filter(Boolean)
+  return {
+    lat: result.latitude,
+    lng: result.longitude,
+    name: nameParts.join(', '),
+  }
+}
