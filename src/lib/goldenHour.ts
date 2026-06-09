@@ -164,7 +164,42 @@ export function getNextWindow(
   windows: LightWindow[],
   now = new Date(),
 ): LightWindow | null {
-  return windows.find(({ start }) => start > now) ?? null
+  return (
+    windows.find(({ start }) => isValidSunTime(start) && start > now) ?? null
+  )
+}
+
+export function getNextLightWindow(
+  schedule: LightSchedule,
+  now = new Date(),
+  lat: number,
+  lng: number,
+): LightWindow | null {
+  const nextToday = getNextWindow(schedule.windows, now)
+  if (nextToday) return nextToday
+
+  const tomorrow = new Date(schedule.date)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const tomorrowSchedule = getLightSchedule(tomorrow, lat, lng)
+  return (
+    tomorrowSchedule.windows.find(({ start }) => isValidSunTime(start)) ?? null
+  )
+}
+
+export function formatCountdown(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000))
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+
+  if (hours > 0) return `${hours}h ${minutes}m`
+  if (minutes > 0) return `${minutes}m ${seconds}s`
+  return `${seconds}s`
+}
+
+export function getNextWindowCountdownLabel(window: LightWindow): string {
+  const name = window.category === 'goldenHour' ? 'golden hour' : 'blue hour'
+  return `Next ${name} in`
 }
 
 export type ForecastDay = {

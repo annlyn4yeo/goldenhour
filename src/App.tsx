@@ -6,12 +6,10 @@ import {
   type Place,
 } from './lib/geocoding'
 import ForecastStrip from './components/ForecastStrip'
+import NextWindowCountdown from './components/NextWindowCountdown'
 import SunArcRing from './components/SunArcRing'
 import {
-  formatDuration,
-  getActiveWindow,
   getLightSchedule,
-  getNextWindow,
   getTimeOfDayPhase,
   TIME_OF_DAY_BACKGROUNDS,
 } from './lib/goldenHour'
@@ -81,7 +79,7 @@ export default function App() {
   }, [detectLocation])
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 30_000)
+    const timer = window.setInterval(() => setNow(new Date()), 1_000)
     return () => window.clearInterval(timer)
   }, [])
 
@@ -90,16 +88,8 @@ export default function App() {
     return getLightSchedule(now, location.lat, location.lng)
   }, [location, now])
 
-  const activeWindow = schedule ? getActiveWindow(schedule.windows, now) : null
-  const nextWindow = schedule ? getNextWindow(schedule.windows, now) : null
   const timeOfDayPhase = schedule ? getTimeOfDayPhase(schedule, now) : 'daytime'
   const background = TIME_OF_DAY_BACKGROUNDS[timeOfDayPhase]
-
-  const status = activeWindow
-    ? `${activeWindow.label} is happening now`
-    : nextWindow
-      ? `${nextWindow.label} in ${formatDuration(nextWindow.start.getTime() - now.getTime())}`
-      : 'No more light windows today'
 
   const handleCitySelect = (place: Place) => {
     void applyCoordinates(place.lat, place.lng, 'search', place.name)
@@ -161,7 +151,12 @@ export default function App() {
           <div className="space-y-6">
             <section className="rounded-3xl bg-white/80 p-6 shadow-sm backdrop-blur">
               <p className="text-sm font-medium text-amber-700">Today</p>
-              <p className="mt-2 text-lg font-medium text-stone-900">{status}</p>
+              <NextWindowCountdown
+                schedule={schedule}
+                now={now}
+                lat={location.lat}
+                lng={location.lng}
+              />
               <div className="mt-4 rounded-2xl bg-amber-50/80 px-4 py-3">
                 <p className="text-base font-semibold text-stone-900">{location.name}</p>
                 <p className="mt-1 text-sm text-stone-500">
