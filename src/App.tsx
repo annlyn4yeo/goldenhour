@@ -18,7 +18,7 @@ export default function App() {
     <AppShell skyPhase={sunData.currentSkyPhase}>
       <TopBar locationName={cityName || 'Loading…'} />
       <HeroSection sunData={sunData} cityName={cityName} isLight={isLight} />
-      <ContentSection />
+      <ContentSection currentSkyPhase={sunData.currentSkyPhase} />
       <Footer />
     </AppShell>
   )
