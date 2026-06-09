@@ -1,4 +1,47 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@400;500;600&display=swap');
+
 @import 'tailwindcss';
+@config '../tailwind.config.ts';
+
+:root {
+  /* Sky palette */
+  --sky-dawn: #1a1035;
+  --sky-blueHour: #2d3a8c;
+  --sky-goldenHour: #e8843a;
+  --sky-solar: #f5c842;
+  --sky-dusk: #c45c2e;
+  --sky-night: #0b0c1a;
+
+  /* Surface palette */
+  --surface-base: #faf9f6;
+  --surface-card: #ffffff;
+  --surface-muted: #f2f0eb;
+  --surface-border: rgba(0, 0, 0, 0.08);
+
+  /* Text / ink */
+  --ink-primary: #1a1814;
+  --ink-secondary: #6b6760;
+  --ink-tertiary: #a8a49f;
+  --ink-inverse: #faf9f6;
+
+  /* Font families */
+  --font-display: 'DM Serif Display', serif;
+  --font-ui: 'Inter', sans-serif;
+
+  /* Font sizes */
+  --text-label: 11px;
+  --text-caption: 12px;
+  --text-body: 14px;
+  --text-bodyLg: 16px;
+  --text-title: 18px;
+  --text-heading: 24px;
+  --text-display: 40px;
+  --text-hero: 64px;
+
+  /* Spacing */
+  --spacing-section: 80px;
+  --spacing-gutter: 48px;
+}
 
 @property --bg-from {
   syntax: '<color>';
@@ -29,4 +72,35 @@
 body {
   margin: 0;
   min-height: 100vh;
+  font-family: var(--font-ui);
+}
+
+.app-shell {
+  --sky-bg: var(--sky-goldenHour);
+  background-color: var(--sky-bg);
+  transition: background-color 2s ease;
+}
+
+.app-shell[data-sky-phase='dawn'] {
+  --sky-bg: var(--sky-dawn);
+}
+
+.app-shell[data-sky-phase='blueHour'] {
+  --sky-bg: var(--sky-blueHour);
+}
+
+.app-shell[data-sky-phase='goldenHour'] {
+  --sky-bg: var(--sky-goldenHour);
+}
+
+.app-shell[data-sky-phase='solar'] {
+  --sky-bg: var(--sky-solar);
+}
+
+.app-shell[data-sky-phase='dusk'] {
+  --sky-bg: var(--sky-dusk);
+}
+
+.app-shell[data-sky-phase='night'] {
+  --sky-bg: var(--sky-night);
 }
