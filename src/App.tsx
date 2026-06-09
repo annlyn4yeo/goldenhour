@@ -25,7 +25,7 @@ export default function App() {
     [sunData, selectedDayIndex, resolvedCoords],
   )
 
-  const { isLight } = useSkyTheme(sunData.currentSkyPhase)
+  const { isLight } = useSkyTheme(displaySunData.currentSkyPhase)
   const isLiveDay = selectedDayIndex === 0
 
   return (

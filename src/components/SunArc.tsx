@@ -15,14 +15,14 @@ type SunArcProps = {
   isLive?: boolean
 }
 
-function inkTextClass(isLight: boolean, opacity?: string): string {
+function inkTextClass(isLight: boolean, muted = false): string {
   const base = isLight ? 'text-ink-primary' : 'text-ink-inverse'
-  return opacity ? `${base}/${opacity}` : base
+  return muted ? `${base} opacity-80` : base
 }
 
-function inkFillClass(isLight: boolean, opacity?: string): string {
+function inkFillClass(isLight: boolean, muted = false): string {
   const base = isLight ? 'fill-ink-primary' : 'fill-ink-inverse'
-  return opacity ? `${base}/${opacity}` : base
+  return muted ? `${base} opacity-80` : base
 }
 
 function looksLikeCoordinates(name: string): boolean {
@@ -35,9 +35,10 @@ function displayLocationName(cityName?: string): string | null {
 }
 
 const CX = 400
-const CY = 220
+const CY = 228
 const RADIUS = 180
-const HORIZON_Y = 248
+const HORIZON_Y = 256
+const VIEWBOX = '0 -48 800 360'
 const TRACK_WIDTH = 4
 const SEGMENT_WIDTH = 7
 
@@ -75,6 +76,31 @@ function timeProgressAtNow(
   if (now.getTime() < sunrise.getTime()) return 0
   if (now.getTime() > sunset.getTime()) return 1
   return clampProgress(timeToArcProgress(sunrise, sunset, now))
+}
+
+function getSunDisplayPoint(
+  sunrise: Date,
+  sunset: Date,
+  now: Date,
+  cx: number,
+  cy: number,
+  radius: number,
+  horizonY: number,
+): { x: number; y: number; belowHorizon: boolean } {
+  const nowMs = now.getTime()
+
+  if (nowMs < sunrise.getTime()) {
+    const left = daylightProgressToPoint(0, cx, cy, radius)
+    return { x: left.x - 28, y: horizonY + 14, belowHorizon: true }
+  }
+
+  if (nowMs > sunset.getTime()) {
+    const right = daylightProgressToPoint(1, cx, cy, radius)
+    return { x: right.x + 28, y: horizonY + 14, belowHorizon: true }
+  }
+
+  const progress = timeProgressAtNow(sunrise, sunset, now)
+  return { ...daylightProgressToPoint(progress, cx, cy, radius), belowHorizon: false }
 }
 
 function formatCountdownFromMinutes(totalMinutes: number): string {
@@ -208,12 +234,21 @@ export default function SunArc({
 
   const referenceTime = isLive ? now : sunData.solarNoon
 
-  const sunProgress = useMemo(() => {
-    if (!hasValidDaylight) return 0
-    return timeProgressAtNow(sunData.sunrise, sunData.sunset, referenceTime)
+  const sunDisplay = useMemo(() => {
+    if (!hasValidDaylight) {
+      return { x: CX, y: CY, belowHorizon: false }
+    }
+    return getSunDisplayPoint(
+      sunData.sunrise,
+      sunData.sunset,
+      referenceTime,
+      CX,
+      CY,
+      RADIUS,
+      HORIZON_Y,
+    )
   }, [hasValidDaylight, sunData.sunrise, sunData.sunset, referenceTime])
 
-  const sunPoint = daylightProgressToPoint(sunProgress, CX, CY, RADIUS)
   const sunAboveHorizon = sunData.sunPosition.altitude > 0
 
   const minutesAway = isLive
@@ -229,10 +264,10 @@ export default function SunArc({
   if (!hasValidDaylight) {
     return (
       <div className="w-full max-w-4xl text-center">
-        <p className={`font-display text-display ${inkTextClass(isLight, '80')}`}>
+        <p className={`font-display text-display ${inkTextClass(isLight, true)}`}>
           Sun path unavailable
         </p>
-        <p className={`mt-2 text-body ${inkTextClass(isLight, '60')}`}>
+        <p className={`mt-2 text-body ${inkTextClass(isLight, true)}`}>
           Polar day or night at this location today.
         </p>
       </div>
@@ -247,11 +282,11 @@ export default function SunArc({
       data-sky-phase={sunData.currentSkyPhase}
     >
       <svg
-        viewBox="0 0 800 300"
+        viewBox={VIEWBOX}
+        overflow="visible"
         role="img"
         aria-label="Sun arc from sunrise to sunset with current position"
-        className="w-full"
-        style={{ filter: phaseGlow }}
+        className="w-full overflow-visible"
       >
         <defs>
           <radialGradient id={`sun-glow-${uid}`} cx="50%" cy="50%" r="50%">
@@ -273,7 +308,7 @@ export default function SunArc({
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-          <filter id={`arc-glow-${uid}`} x="-10%" y="-30%" width="120%" height="160%">
+          <filter id={`arc-glow-${uid}`} x="-20%" y="-50%" width="140%" height="200%">
             <feGaussianBlur stdDeviation="3" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
@@ -339,10 +374,11 @@ export default function SunArc({
                   x1={x}
                   y1={y}
                   x2={x}
-                  y2={HORIZON_Y}
-                  stroke="rgba(250, 249, 246, 0.2)"
+                  y2={HORIZON_Y + 2}
+                  stroke="rgba(250, 249, 246, 0.28)"
                   strokeWidth={1}
-                  strokeDasharray="3 4"
+                  strokeDasharray="4 4"
+                  strokeLinecap="round"
                 />
               )}
               <circle
@@ -358,7 +394,7 @@ export default function SunArc({
                   x={x}
                   y={HORIZON_Y + labelYOffset(marker.progress)}
                   textAnchor="middle"
-                  className={inkFillClass(isLight, isNoon ? '90' : '75')}
+                  className={inkFillClass(isLight, !isNoon)}
                   style={{
                     fontFamily: 'Inter, sans-serif',
                     fontSize: isNoon ? 13 : 12,
@@ -373,35 +409,37 @@ export default function SunArc({
           )
         })}
 
-        <circle
-          cx={sunPoint.x}
-          cy={sunPoint.y}
-          r={22}
-          fill={`url(#sun-glow-${uid})`}
-          opacity={sunAboveHorizon ? 0.85 : 0.25}
-          className="transition-all duration-1000 ease-in-out"
-        />
-        <circle
-          cx={sunPoint.x}
-          cy={sunPoint.y}
-          r={9}
-          fill="#ffd54a"
-          stroke="rgba(250, 249, 246, 0.95)"
-          strokeWidth={2}
-          opacity={sunAboveHorizon ? 1 : 0.4}
-          filter={`url(#sun-bloom-${uid})`}
-          className="transition-all duration-1000 ease-in-out"
-        />
+        <g style={{ filter: phaseGlow }}>
+          <circle
+            cx={sunDisplay.x}
+            cy={sunDisplay.y}
+            r={22}
+            fill={`url(#sun-glow-${uid})`}
+            opacity={sunDisplay.belowHorizon ? 0.15 : sunAboveHorizon ? 0.85 : 0.35}
+            className="transition-all duration-1000 ease-in-out"
+          />
+          <circle
+            cx={sunDisplay.x}
+            cy={sunDisplay.y}
+            r={9}
+            fill="#ffd54a"
+            stroke="rgba(250, 249, 246, 0.95)"
+            strokeWidth={2}
+            opacity={sunDisplay.belowHorizon ? 0.2 : sunAboveHorizon ? 1 : 0.5}
+            filter={`url(#sun-bloom-${uid})`}
+            className="transition-all duration-1000 ease-in-out"
+          />
+        </g>
       </svg>
 
       <div className="mt-1 text-center">
         <h1
-          className={`font-display text-[clamp(56px,9vw,72px)] font-normal leading-[0.95] tracking-tight ${inkTextClass(isLight)}`}
+          className={`font-display text-[length:clamp(56px,9vw,72px)] font-normal leading-[0.95] tracking-tight ${inkTextClass(isLight)}`}
         >
           {sunData.nextWindow.label}
         </h1>
         <p
-          className={`mt-4 text-[clamp(18px,3vw,22px)] font-medium tabular-nums tracking-wide ${inkTextClass(isLight, '90')}`}
+          className={`mt-4 text-[length:clamp(18px,3vw,22px)] font-medium tabular-nums tracking-wide ${inkTextClass(isLight, true)}`}
           aria-live={isLive ? 'polite' : undefined}
         >
           {isLive
@@ -409,7 +447,7 @@ export default function SunArc({
             : formatTime(sunData.nextWindow.time)}
         </p>
         {(locationLabel || sunData.date) && (
-          <p className={`mt-5 text-body font-medium tracking-wide ${inkTextClass(isLight, '60')}`}>
+          <p className={`mt-5 text-body font-medium tracking-wide ${inkTextClass(isLight, true)}`}>
             {[locationLabel, formatTodayDate(sunData.date)].filter(Boolean).join(' · ')}
           </p>
         )}
