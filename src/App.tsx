@@ -6,6 +6,7 @@ import {
   type Place,
 } from './lib/geocoding'
 import ForecastStrip from './components/ForecastStrip'
+import SunArcRing from './components/SunArcRing'
 import {
   formatDuration,
   getActiveWindow,
@@ -80,7 +81,7 @@ export default function App() {
   }, [detectLocation])
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 60_000)
+    const timer = window.setInterval(() => setNow(new Date()), 30_000)
     return () => window.clearInterval(timer)
   }, [])
 
@@ -156,7 +157,7 @@ export default function App() {
           </section>
         )}
 
-        {showSchedule && location && (
+        {showSchedule && location && schedule && (
           <div className="space-y-6">
             <section className="rounded-3xl bg-white/80 p-6 shadow-sm backdrop-blur">
               <p className="text-sm font-medium text-amber-700">Today</p>
@@ -166,6 +167,16 @@ export default function App() {
                 <p className="mt-1 text-sm text-stone-500">
                   {formatCoordinates(location.lat, location.lng)}
                 </p>
+              </div>
+            </section>
+
+            <section className="rounded-3xl bg-white/80 p-6 shadow-sm backdrop-blur">
+              <p className="text-sm font-medium text-amber-700">Sun path today</p>
+              <p className="mt-1 text-sm text-stone-500">
+                Live position from sunrise to sunset. Golden segments mark golden hour.
+              </p>
+              <div className="mt-5">
+                <SunArcRing schedule={schedule} />
               </div>
             </section>
 

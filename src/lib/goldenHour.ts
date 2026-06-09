@@ -233,3 +233,131 @@ export function getForecastDays(
 export function isValidSunTime(date: Date): boolean {
   return !Number.isNaN(date.getTime())
 }
+
+export type SunArcMarker = {
+  id: string
+  label: string
+  progress: number
+  kind: 'sunrise' | 'sunset' | 'solarNoon' | 'goldenHour'
+}
+
+export type SunArcSegment = {
+  id: string
+  startProgress: number
+  endProgress: number
+  kind: 'track' | 'goldenHour'
+}
+
+function timeToDaylightProgress(schedule: LightSchedule, time: Date): number {
+  const span = schedule.sunset.getTime() - schedule.sunrise.getTime()
+  if (span <= 0) return 0
+  return (time.getTime() - schedule.sunrise.getTime()) / span
+}
+
+export function getDaylightProgress(schedule: LightSchedule, time: Date): number {
+  if (!isValidSunTime(schedule.sunrise) || !isValidSunTime(schedule.sunset)) {
+    return 0
+  }
+
+  const span = schedule.sunset.getTime() - schedule.sunrise.getTime()
+  if (span <= 0) return 0
+
+  const elapsed = time.getTime() - schedule.sunrise.getTime()
+  return Math.min(1, Math.max(0, elapsed / span))
+}
+
+export function isSunAboveHorizon(schedule: LightSchedule, time: Date): boolean {
+  if (!isValidSunTime(schedule.sunrise) || !isValidSunTime(schedule.sunset)) {
+    return false
+  }
+
+  return time >= schedule.sunrise && time <= schedule.sunset
+}
+
+export function daylightProgressToRadians(progress: number): number {
+  return Math.PI * (1 - progress)
+}
+
+export function daylightProgressToPoint(
+  progress: number,
+  cx: number,
+  cy: number,
+  radius: number,
+): { x: number; y: number } {
+  const angle = daylightProgressToRadians(progress)
+  return {
+    x: cx + radius * Math.cos(angle),
+    y: cy - radius * Math.sin(angle),
+  }
+}
+
+export function describeDaylightArc(
+  cx: number,
+  cy: number,
+  radius: number,
+  startProgress: number,
+  endProgress: number,
+): string {
+  const start = daylightProgressToPoint(startProgress, cx, cy, radius)
+  const end = daylightProgressToPoint(endProgress, cx, cy, radius)
+  const delta = endProgress - startProgress
+  const largeArc = Math.abs(delta) > 0.5 ? 1 : 0
+
+  return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArc} 1 ${end.x} ${end.y}`
+}
+
+export function getSunArcMarkers(schedule: LightSchedule): SunArcMarker[] {
+  if (!isValidSunTime(schedule.sunrise) || !isValidSunTime(schedule.sunset)) {
+    return []
+  }
+
+  const { goldenHour, solarNoon } = schedule
+
+  return [
+    { id: 'sunrise', label: 'Sunrise', progress: 0, kind: 'sunrise' },
+    {
+      id: 'golden-morning',
+      label: 'Golden',
+      progress: timeToDaylightProgress(schedule, goldenHour.morning.end),
+      kind: 'goldenHour',
+    },
+    {
+      id: 'solar-noon',
+      label: 'Noon',
+      progress: timeToDaylightProgress(schedule, solarNoon),
+      kind: 'solarNoon',
+    },
+    {
+      id: 'golden-evening',
+      label: 'Golden',
+      progress: timeToDaylightProgress(schedule, goldenHour.evening.start),
+      kind: 'goldenHour',
+    },
+    { id: 'sunset', label: 'Sunset', progress: 1, kind: 'sunset' },
+  ]
+}
+
+export function getSunArcSegments(schedule: LightSchedule): SunArcSegment[] {
+  if (!isValidSunTime(schedule.sunrise) || !isValidSunTime(schedule.sunset)) {
+    return []
+  }
+
+  const morningEnd = timeToDaylightProgress(schedule, schedule.goldenHour.morning.end)
+  const eveningStart = timeToDaylightProgress(schedule, schedule.goldenHour.evening.start)
+
+  return [
+    { id: 'track', startProgress: 0, endProgress: 1, kind: 'track' },
+    {
+      id: 'golden-morning',
+      startProgress: 0,
+      endProgress: morningEnd,
+      kind: 'goldenHour',
+    },
+    {
+      id: 'golden-evening',
+      startProgress: eveningStart,
+      endProgress: 1,
+      kind: 'goldenHour',
+    },
+  ]
+}
